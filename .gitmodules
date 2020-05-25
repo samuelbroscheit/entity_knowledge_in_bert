@@ -1,0 +1,6 @@
+[submodule "wikiextractor-wikimentions"]
+	path = wikiextractor-wikimentions
+	url = git://github.com/samuelbroscheit/wikiextractor-wikimentions.git
+[submodule "pytorch-pretrained-BERT"]
+	path = pytorch-pretrained-BERT
+	url = git://github.com/huggingface/pytorch-pretrained-BERT.git
