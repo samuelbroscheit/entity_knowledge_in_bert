@@ -157,10 +157,7 @@ class Net(nn.Module):
                 logits = logits.view(-1)  # (N*T, VOCAB)
                 label_probs = label_probs.view(-1)  # (N*T,)
 
-                if args.fp16:
-                    loss = criterion(logits.float(), label_probs)
-                else:
-                    loss = criterion(logits, label_probs)
+                loss = criterion(logits, label_probs)
 
                 if args.regularization is not None and args.regularization > 0:
                     non_pad_mask = (y.view(-1) < vocab.PAD_ID).float().view(-1, 1)
@@ -230,7 +227,7 @@ class Net(nn.Module):
     ):
 
         print()
-        logging.info("Start evaluation")
+        logging.info(f"Start evaluation on split {'test' if args.eval_on_test_only else 'valid'}")
 
         model.eval()
         model.to(args.device, args.eval_device)
@@ -257,11 +254,14 @@ class Net(nn.Module):
                 y_hat_resolved_list = list()
                 token_list = list()
 
+                chunk_len = args.create_integerized_training_instance_text_length
+                chunk_overlap = args.create_integerized_training_instance_text_overlap
+
                 for batch_id, seq in enumerate(label_probs.max(-1)[1]):
-                    for tok_id, label_id in enumerate(seq[args.chunk_overlap : -args.chunk_overlap]):
+                    for tok_id, label_id in enumerate(seq[chunk_overlap : -chunk_overlap]):
                         y_resolved = (
                             vocab.PAD_ID
-                            if eval_mask[batch_id][tok_id + args.chunk_overlap] == 0
+                            if eval_mask[batch_id][tok_id + chunk_overlap] == 0
                             else label_ids[label_id].item()
                         )
                         y_resolved_list.append(y_resolved)
@@ -269,14 +269,14 @@ class Net(nn.Module):
                         if sampled_evaluation:
                             y_hat_resolved = (
                                 vocab.PAD_ID
-                                if eval_mask[batch_id][tok_id + args.chunk_overlap] == 0
-                                else label_ids[y_hat[batch_id][tok_id + args.chunk_overlap]].item()
+                                if eval_mask[batch_id][tok_id + chunk_overlap] == 0
+                                else label_ids[y_hat[batch_id][tok_id + chunk_overlap]].item()
                             )
                         else:
-                            y_hat_resolved = y_hat[batch_id][tok_id + args.chunk_overlap].item()
+                            y_hat_resolved = y_hat[batch_id][tok_id + chunk_overlap].item()
                         y_hat_resolved_list.append(y_hat_resolved)
                         predtags.append(vocab.idx2tag[y_hat_resolved])
-                        token_list.append(batch_token_ids[batch_id][tok_id + args.chunk_overlap].item())
+                        token_list.append(batch_token_ids[batch_id][tok_id + chunk_overlap].item())
 
                 all_y.append(y_resolved_list)
                 all_y_hat.append(y_hat_resolved_list)
@@ -322,7 +322,7 @@ class Net(nn.Module):
 
         if not args.dont_save_checkpoints:
 
-            if save_checkpoint or metrics.was_improved(new_metrics):
+            if save_checkpoint and metrics.was_improved(new_metrics):
                 config = {
                     "args": args,
                     "optimizer_dense": optimizers[0].state_dict(),

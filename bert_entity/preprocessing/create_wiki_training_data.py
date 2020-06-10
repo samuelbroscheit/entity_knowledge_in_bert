@@ -17,6 +17,203 @@ from pipeline_job import PipelineJob
 from pytorch_pretrained_bert import BertTokenizer
 
 
+class CreateWikiTrainingData(PipelineJob):
+    """
+    Create sequence labelling data by tokenizing with BertTokenizer and adding labels
+    for these spans that have an associated Wikipedia link. Also, annotate spans detected
+    by the keyword matcher that is aware of mentions that are linking to the entities
+    in our top k popular entities dictionary.
+    Subsequently, we count the mentions in this data and create a discounted prior p(e|m)
+    and a set of necessary articles that contain the top k popular entities.
+    """
+    def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
+        super().__init__(
+            requires=[
+                "data/indexes/redirects_en.ttl.bz2.dict",
+                f"data/versions/{opts.data_version_name}/indexes/keyword_processor.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/popular_entity_counter_dict.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/mention_entity_counter_popular_entities.pickle",
+                f"data/versions/{opts.data_version_name}/wikiextractor_out/{opts.wiki_lang_version}/",
+            ],
+            provides=[
+                f"data/versions/{opts.data_version_name}/wiki_training/raw/{opts.wiki_lang_version}/",
+                f"data/versions/{opts.data_version_name}/indexes/necessary_articles.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/entities_in_necessary_articles.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/mention_counter.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/mention_entity_discounted_probs.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/entities_found_in_article.pickle",
+                f"data/versions/{opts.data_version_name}/indexes/article_found_for_entities.pickle",
+            ],
+            preprocess_jobs=preprocess_jobs,
+            opts=opts,
+        )
+
+    def _run(self):
+
+        with open("data/indexes/redirects_en.ttl.bz2.dict", "rb") as f:
+            redirects_en = pickle.load(f)
+
+        with open(f"data/versions/{self.opts.data_version_name}/indexes/keyword_processor.pickle", "rb",) as f:
+            keyword_processor = pickle.load(f)
+
+        with open(
+            f"data/versions/{self.opts.data_version_name}/indexes/popular_entity_counter_dict.pickle", "rb",
+        ) as f:
+            most_popular_entity_counter_dict = pickle.load(f)
+
+        with open(
+            f"data/versions/{self.opts.data_version_name}/indexes/mention_entity_counter_popular_entities.pickle", "rb",
+        ) as f:
+            mention_entity_count_popular_entities = pickle.load(f)
+
+        self.log("Loading finished")
+
+        in_queue = multiprocessing.Queue()
+        out_queue = multiprocessing.Queue()
+
+        workers = list()
+
+        list_dir_string = (
+            f"data/versions/{self.opts.data_version_name}/wikiextractor_out/{self.opts.wiki_lang_version}/*/*/wiki_*"
+        )
+
+        #
+        # start the workers in individual processes
+        #
+        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
+        for id in range(self.opts.create_training_data_num_workers):
+            worker = Worker(
+                in_queue,
+                out_queue,
+                opts=self.opts,
+                tokenizer=tokenizer,
+                redirects_en=redirects_en,
+                keyword_processor=keyword_processor,
+                popular_entity_counter_dict=most_popular_entity_counter_dict,
+                mention_entity_counter_popular_entities=mention_entity_count_popular_entities,
+            )
+            worker.start()
+            workers.append(worker)
+
+        self.log("Fill queue")
+        # fill the queue
+        for file_nr, extracted_wiki_file in enumerate(tqdm.tqdm(glob.glob(list_dir_string))):
+            in_queue.put(extracted_wiki_file)
+
+        outputs = list()
+        mention_counter = Counter()
+        entities_found_in_article = dict()
+        article_found_for_entities = dict()
+
+        self.log("Collect the output")
+        # collect the output
+        for file_nr, extracted_wiki_file in enumerate(tqdm.tqdm(glob.glob(list_dir_string))):
+            ((out_file_names, local_mention_counter, local_entities_found_in_article,), in_file_name,) = out_queue.get()
+            outputs.append((out_file_names, in_file_name))
+            mention_counter.update(local_mention_counter)
+            for (out_file_name, local_entities_found_counter,) in local_entities_found_in_article:
+                self.debug("{} finished".format((out_file_name, in_file_name)))
+                entities_found_in_article[out_file_name] = dict(local_entities_found_counter.items())
+                for ent, count in local_entities_found_counter.items():
+                    if ent not in article_found_for_entities:
+                        article_found_for_entities[ent] = Counter()
+                    article_found_for_entities[ent][out_file_name] = count
+
+        # for file_name in outputs:
+        #     print(file_name)
+        #     pass
+
+        # put the None into the queue so the loop in the run() function of the worker stops
+        for worker in workers:
+            in_queue.put(None)
+            out_queue.put(None)
+
+        # terminate the process
+        for worker in workers:
+            worker.join()
+
+        # remove mentions for which no entities are found
+        me_pop = [(k, v) for k, v in mention_entity_count_popular_entities.items() if len(v) > 0]
+
+        # take the top 1000 mentions according to their total mention-entity count and ...
+        me_topk = [k for k, c in sorted(me_pop, key=lambda x: sum([j for i, j in x[1]]))[-1000:]]
+
+        # ... compute an idealized p(NIL|m), i.e., the probability of the most frequent mentions to
+        # link to NIL. This is based on the assumption that using the most frequent mentions we can
+        # find the best approximation of p(NIL|m).
+        prob_m_links_to_nil = numpy.array(
+            list(
+                (
+                        mention_counter[m_from_topk_entities]
+                        - sum([c for k, c in mention_entity_count_popular_entities[m_from_topk_entities]])
+                )
+                / sum([c for k, c in mention_entity_count_popular_entities[m_from_topk_entities]])
+                for m_from_topk_entities in me_topk
+            )
+        ).mean()
+
+        # Now use the estimate of p(NIL|m) to rescale p(NIL|"United States") == 0 and p(NIL | m) for
+        # other mention-entity pairs are discounted accordingly.
+        me_pop_p = dict()
+        for a_mention, counts in me_pop:
+            sum_em_counts_for_a_mention = sum([c for k, c in mention_entity_count_popular_entities[a_mention]])
+            tmp = [
+                (e, (c / (mention_counter[a_mention] + 1)))
+                for e, c in mention_entity_count_popular_entities[a_mention]
+                            + [("|||O|||",
+                                    max([
+                                            math.pow(max([mention_counter[a_mention] - sum_em_counts_for_a_mention, 1, ]), 3 / 4, )
+                                            - math.pow(prob_m_links_to_nil * mention_counter[a_mention], 3 / 4, ),
+                                            1,
+                                        ]),)]
+            ]
+            sum_tmp = sum([p for k, p in tmp])
+            me_pop_p[a_mention] = [(k, p / sum_tmp) for k, p in tmp]
+
+        # Now collect the Wikipedia articles that are neccessary to compute the entity embeddings for the most
+        # popular entities, i.e. the Wikipedia articles that contain the most popular entities.
+        necessary_articles = set()
+        entities_in_necessary_articles = Counter()
+        for out_file_name, ent_count_dict in tqdm.tqdm(
+            sorted(entities_found_in_article.items(), key=lambda x: len(x[1]), reverse=True)
+        ):
+            for ent, count in ent_count_dict.items():
+                if (
+                    ent not in entities_in_necessary_articles
+                    or entities_in_necessary_articles[ent]
+                    < self.opts.create_training_data_num_entities_in_necessary_articles
+                ):
+                    entities_in_necessary_articles.update(ent_count_dict)
+                    necessary_articles.add(out_file_name.replace("/tmp/", f"/{self.opts.wiki_lang_version}/"))
+
+        with open(
+            f"data/versions/{self.opts.data_version_name}/indexes/mention_entity_discounted_probs.pickle", "wb"
+        ) as f:
+            pickle.dump(me_pop_p, f)
+
+        with open(f"data/versions/{self.opts.data_version_name}/indexes/mention_counter.pickle", "wb") as f:
+            pickle.dump(mention_counter, f)
+
+        with open(f"data/versions/{self.opts.data_version_name}/indexes/entities_found_in_article.pickle", "wb") as f:
+            pickle.dump(entities_found_in_article, f)
+
+        with open(f"data/versions/{self.opts.data_version_name}/indexes/article_found_for_entities.pickle", "wb") as f:
+            pickle.dump(article_found_for_entities, f)
+
+        with open(
+            f"data/versions/{self.opts.data_version_name}/indexes/entities_in_necessary_articles.pickle", "wb"
+        ) as f:
+            pickle.dump(entities_in_necessary_articles, f)
+
+        with open(f"data/versions/{self.opts.data_version_name}/indexes/necessary_articles.pickle", "wb") as f:
+            pickle.dump(necessary_articles, f)
+
+        os.rename(
+            f"data/versions/{self.opts.data_version_name}/wiki_training/raw/tmp/",
+            f"data/versions/{self.opts.data_version_name}/wiki_training/raw/{self.opts.wiki_lang_version}/",
+        )
+
+
 class Worker(multiprocessing.Process):
     def __init__(
         self,
@@ -143,7 +340,7 @@ class Worker(multiprocessing.Process):
                     # if debug: print('wiki_text_toks', wiki_text_toks)
 
                     #
-                    # check if beginning of annotated link or keyword link
+                    # check if *beginning* of annotated link or keyword link
                     #
 
                     if links_seen < len(links_offsets) and (
@@ -191,7 +388,7 @@ class Worker(multiprocessing.Process):
                         inside_kw = True
 
                     #
-                    # check if end of annotated link or keyword link
+                    # check if *end* of annotated link or keyword link
                     #
 
                     if links_seen < len(links_offsets) and (
@@ -226,6 +423,10 @@ class Worker(multiprocessing.Process):
                         links_seen += 1
                         inside_link = False
                         entity = None
+
+                    #
+                    # check if *end* of keyword link and if any keyword matches have been seen.
+                    #
 
                     if kw_seen < len(keywords_found) and (
                         keywords_found[kw_seen][2] == (len(reconstructed_wiki_text) + len(current_snippet))
@@ -304,188 +505,3 @@ class Worker(multiprocessing.Process):
                 out_file_names.append(out_file_name)
                 local_entities_found_in_article.append((out_file_name, local_entities_found_counter))
         return out_file_names, local_mention_counter, local_entities_found_in_article
-
-
-class CreateWikiTrainingData(PipelineJob):
-    def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
-        super().__init__(
-            requires=[
-                "data/indexes/redirects_en.ttl.bz2.dict",
-                f"data/versions/{opts.data_version_name}/indexes/keyword_processor.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/popular_entity_counter_dict.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/mention_entity_counter_popular_entities.pickle",
-                f"data/versions/{opts.data_version_name}/wikiextractor_out/{opts.wiki_lang_version}/",
-            ],
-            provides=[
-                f"data/versions/{opts.data_version_name}/wiki_training/raw/{opts.wiki_lang_version}/",
-                f"data/versions/{opts.data_version_name}/indexes/necessary_articles.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/entities_in_necessary_articles.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/mention_counter.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/mention_entity_discounted_probs.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/entities_found_in_article.pickle",
-                f"data/versions/{opts.data_version_name}/indexes/article_found_for_entities.pickle",
-            ],
-            preprocess_jobs=preprocess_jobs,
-            opts=opts,
-        )
-
-    def _run(self):
-
-        with open("data/indexes/redirects_en.ttl.bz2.dict", "rb") as f:
-            redirects_en = pickle.load(f)
-
-        with open(f"data/versions/{self.opts.data_version_name}/indexes/keyword_processor.pickle", "rb",) as f:
-            keyword_processor = pickle.load(f)
-
-        with open(
-            f"data/versions/{self.opts.data_version_name}/indexes/popular_entity_counter_dict.pickle", "rb",
-        ) as f:
-            most_popular_entity_counter_dict = pickle.load(f)
-
-        with open(
-            f"data/versions/{self.opts.data_version_name}/indexes/mention_entity_counter_popular_entities.pickle", "rb",
-        ) as f:
-            mention_entity_count_popular_entities = pickle.load(f)
-
-        self.log("Loading finished")
-
-        in_queue = multiprocessing.Queue()
-        out_queue = multiprocessing.Queue()
-
-        workers = list()
-
-        list_dir_string = (
-            f"data/versions/{self.opts.data_version_name}/wikiextractor_out/{self.opts.wiki_lang_version}/*/*/wiki_*"
-        )
-
-        #
-        # start the workers in individual processes
-        #
-        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
-        for id in range(self.opts.create_training_data_num_workers):
-            worker = Worker(
-                in_queue,
-                out_queue,
-                opts=self.opts,
-                tokenizer=tokenizer,
-                redirects_en=redirects_en,
-                keyword_processor=keyword_processor,
-                popular_entity_counter_dict=most_popular_entity_counter_dict,
-                mention_entity_counter_popular_entities=mention_entity_count_popular_entities,
-            )
-            worker.start()
-            workers.append(worker)
-
-        self.log("Fill queue")
-        # fill the queue
-        for file_nr, extracted_wiki_file in enumerate(tqdm.tqdm(glob.glob(list_dir_string))):
-            in_queue.put(extracted_wiki_file)
-
-        outputs = list()
-        mention_counter = Counter()
-        entities_found_in_article = dict()
-        article_found_for_entities = dict()
-
-        self.log("Collect the output")
-        # collect the output
-        for file_nr, extracted_wiki_file in enumerate(tqdm.tqdm(glob.glob(list_dir_string))):
-            ((out_file_names, local_mention_counter, local_entities_found_in_article,), in_file_name,) = out_queue.get()
-            outputs.append((out_file_names, in_file_name))
-            mention_counter.update(local_mention_counter)
-            for (out_file_name, local_entities_found_counter,) in local_entities_found_in_article:
-                self.debug("{} finished".format((out_file_name, in_file_name)))
-                entities_found_in_article[out_file_name] = dict(local_entities_found_counter.items())
-                for ent, count in local_entities_found_counter.items():
-                    if ent not in article_found_for_entities:
-                        article_found_for_entities[ent] = Counter()
-                    article_found_for_entities[ent][out_file_name] = count
-
-        # for file_name in outputs:
-        #     print(file_name)
-        #     pass
-
-        # put the None into the queue so the loop in the run() function of the worker stops
-        for worker in workers:
-            in_queue.put(None)
-            out_queue.put(None)
-
-        # terminate the process
-        for worker in workers:
-            worker.join()
-
-        me_pop = [(k, v) for k, v in mention_entity_count_popular_entities.items() if len(v) > 0]
-
-        me_topk = [k for k, c in sorted(me_pop, key=lambda x: sum([j for i, j in x[1]]))[-1000:]]
-        prob_m_links_to_nil = numpy.array(
-            list(
-                (
-                    mention_counter[m_from_topk_entities]
-                    - sum([c for k, c in mention_entity_count_popular_entities[m_from_topk_entities]])
-                )
-                / sum([c for k, c in mention_entity_count_popular_entities[m_from_topk_entities]])
-                for m_from_topk_entities in me_topk
-            )
-        ).mean()
-
-        me_pop_p = dict()
-        for a_mention, counts in me_pop:
-            sum_em_counts_for_a_mention = sum([c for k, c in mention_entity_count_popular_entities[a_mention]])
-            tmp = [
-                (e, (c / (mention_counter[a_mention] + 1)))
-                for e, c in mention_entity_count_popular_entities[a_mention]
-                + [
-                    (
-                        "|||O|||",
-                        max(
-                            [
-                                math.pow(max([mention_counter[a_mention] - sum_em_counts_for_a_mention, 1,]), 3 / 4,)
-                                - math.pow(prob_m_links_to_nil * mention_counter[a_mention], 3 / 4,),
-                                1,
-                            ]
-                        ),
-                    )
-                ]
-            ]
-            sum_tmp = sum([p for k, p in tmp])
-            me_pop_p[a_mention] = [(k, p / sum_tmp) for k, p in tmp]
-
-        with open(f"data/versions/{self.opts.data_version_name}/indexes/mention_counter.pickle", "wb") as f:
-            pickle.dump(mention_counter, f)
-
-        with open(
-            f"data/versions/{self.opts.data_version_name}/indexes/mention_entity_discounted_probs.pickle", "wb"
-        ) as f:
-            pickle.dump(me_pop_p, f)
-
-        with open(f"data/versions/{self.opts.data_version_name}/indexes/entities_found_in_article.pickle", "wb") as f:
-            pickle.dump(entities_found_in_article, f)
-
-        with open(f"data/versions/{self.opts.data_version_name}/indexes/article_found_for_entities.pickle", "wb") as f:
-            pickle.dump(article_found_for_entities, f)
-
-        necessary_articles = set()
-        entities_in_necessary_articles = Counter()
-        for out_file_name, ent_count_dict in tqdm.tqdm(
-            sorted(entities_found_in_article.items(), key=lambda x: len(x[1]), reverse=True)
-        ):
-            for ent, count in ent_count_dict.items():
-                if (
-                    ent not in entities_in_necessary_articles
-                    or entities_in_necessary_articles[ent]
-                    < self.opts.create_training_data_num_entities_in_necessary_articles
-                ):
-                    entities_in_necessary_articles.update(ent_count_dict)
-                    necessary_articles.add(out_file_name.replace("/tmp/", f"/{self.opts.wiki_lang_version}/"))
-
-        with open(
-            f"data/versions/{self.opts.data_version_name}/indexes/entities_in_necessary_articles.pickle", "wb"
-        ) as f:
-            pickle.dump(entities_in_necessary_articles, f)
-
-        with open(f"data/versions/{self.opts.data_version_name}/indexes/necessary_articles.pickle", "wb") as f:
-            pickle.dump(necessary_articles, f)
-
-        os.rename(
-            f"data/versions/{self.opts.data_version_name}/wiki_training/raw/tmp/",
-            f"data/versions/{self.opts.data_version_name}/wiki_training/raw/{self.opts.wiki_lang_version}/",
-        )

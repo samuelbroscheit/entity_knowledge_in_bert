@@ -20,6 +20,9 @@ class CONLLEDLDataset(data.Dataset):
         if split == "test":
             train_valid_test_int = 2
 
+        chunk_len = args.create_integerized_training_instance_text_length
+        chunk_overlap = args.create_integerized_training_instance_text_overlap
+
         self.item_locs = None
         self.device = device
         with open(args.data_path_conll, "rb") as f:
@@ -29,7 +32,7 @@ class CONLLEDLDataset(data.Dataset):
                     [
                         pad_to(
                             [tok_id for _, tok_id, _, _, _, _, _ in doc],
-                            max_len=args.chunk_len + 2,
+                            max_len=chunk_len + 2,
                             pad_id=0,
                             cls_id=101,
                             sep_id=102,
@@ -39,7 +42,7 @@ class CONLLEDLDataset(data.Dataset):
                     [
                         pad_to(
                             [bio_id for _, _, _, bio_id, _, _, _ in doc],
-                            max_len=args.chunk_len + 2,
+                            max_len=chunk_len + 2,
                             pad_id=2,
                             cls_id=2,
                             sep_id=2,
@@ -49,7 +52,7 @@ class CONLLEDLDataset(data.Dataset):
                     [
                         pad_to(
                             [wiki_id for _, _, _, _, _, wiki_id, _ in doc],
-                            max_len=args.chunk_len + 2,
+                            max_len=chunk_len + 2,
                             pad_id=vocab.PAD_ID,
                             cls_id=vocab.PAD_ID,
                             sep_id=vocab.PAD_ID,
@@ -59,7 +62,7 @@ class CONLLEDLDataset(data.Dataset):
                     [
                         pad_to(
                             [doc_id for _, _, _, _, _, _, doc_id in doc],
-                            max_len=args.chunk_len + 2,
+                            max_len=chunk_len + 2,
                             pad_id=0,
                             cls_id=0,
                             sep_id=0,

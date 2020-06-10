@@ -3,6 +3,7 @@ import os
 
 import configargparse as argparse
 import torch.cuda
+import yaml
 
 from misc import argparse_bool_type
 
@@ -10,12 +11,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", is_config_file=True, help="config file path")
 parser.add_argument("--debug", type=argparse_bool_type, default=False)
 parser.add_argument("--device", default=0)
-parser.add_argument("--uncased", type=argparse_bool_type, default=False)
 parser.add_argument("--eval_device", default=None)
 parser.add_argument("--dataset", default="EDLDataset")
 parser.add_argument("--model", default="Net")
 parser.add_argument("--data_version_name")
 parser.add_argument("--wiki_lang_version")
+parser.add_argument("--eval_on_test_only", type=argparse_bool_type, default=False)
 parser.add_argument("--out_device", default=None)
 parser.add_argument("--batch_size", type=int, default=128)
 parser.add_argument("--eval_batch_size", type=int, default=128)
@@ -41,15 +42,13 @@ parser.add_argument("--checkpoint_save_steps", type=int, default=50000)
 parser.add_argument("--finetuning", dest="finetuning", type=int, default=9999999999)
 parser.add_argument("--top_rnns", dest="top_rnns", type=argparse_bool_type)
 parser.add_argument("--logdir", type=str)
-# parser.add_argument("--data_path", type=str, default="data/data_01/")
-parser.add_argument("--data_path_conll", type=str, default="")
 parser.add_argument("--train_loc_file", type=str, default="train.loc")
 parser.add_argument("--valid_loc_file", type=str, default="valid.loc")
+parser.add_argument("--test_loc_file", type=str, default="test.loc")
 parser.add_argument("--resume_from_checkpoint", type=str)
+parser.add_argument("--resume_reset_epoch", type=argparse_bool_type, default=False)
 parser.add_argument("--resume_optimizer_from_checkpoint", type=argparse_bool_type, default=False)
-parser.add_argument("--resume_from_old_checkpoint", type=str)
 parser.add_argument("--topk_neg_examples", type=int, default=3)
-parser.add_argument("--block_gpu", type=argparse_bool_type)
 parser.add_argument("--dont_save_checkpoints", type=argparse_bool_type, default=False)
 parser.add_argument("--data_workers", type=int, default=8)
 parser.add_argument("--bert_dropout", type=float, default=None)
@@ -59,13 +58,13 @@ parser.add_argument("--decoder_lr_scheduler", type=str, default=None)
 parser.add_argument("--decoder_lr_scheduler_config", default=None)
 parser.add_argument("--segm_decoder_lr_scheduler", type=str, default=None)
 parser.add_argument("--segm_decoder_lr_scheduler_config", default=None)
-parser.add_argument("--chunk_len", type=int, default=110)
-parser.add_argument("--chunk_overlap", type=int, default=0)
 parser.add_argument("--eval_before_training", type=argparse_bool_type, default=False)
+parser.add_argument("--data_path_conll", type=str,)
 parser.add_argument("--train_data_dir", type=str, default="data")
 parser.add_argument("--valid_data_dir", type=str, default="data")
 parser.add_argument("--test_data_dir", type=str, default="data")
 parser.add_argument("--exclude_parameter_names_regex", type=str)
+
 
 def get_args():
 
@@ -106,13 +105,25 @@ def get_args():
     if not args.logdir:
         raise Exception("set args.logdir")
 
-    return args
-
-def set_up_checkpoint_and_log_dir(args):
-
     if not os.path.exists(args.logdir):
         os.makedirs(args.logdir)
 
-    config_fname = os.path.join(args.logdir, "config")
-    with open(f"{config_fname}.yaml", "w") as f:
-        f.writelines(["{}:\t{}\n".format(k, v) for k, v in args.__dict__.items()])
+    if not args.eval_on_test_only:
+        config_fname = os.path.join(args.logdir, "config")
+        with open(f"{config_fname}.yaml", "w") as f:
+            f.writelines(
+                [
+                    "{}: {}\n".format(k, v)
+                    for k, v in args.__dict__.items()
+                    if isinstance(v, str) and len(v.strip()) > 0 or not isinstance(v, str) and v is not None
+                ]
+            )
+
+    with open(f"data/versions/{args.data_version_name}/config.yaml") as f:
+        dataset = yaml.load(f, Loader=yaml.UnsafeLoader)
+
+    for k, v in dataset.items():
+        if k != "debug":
+            args.__setattr__(k, v)
+
+    return args

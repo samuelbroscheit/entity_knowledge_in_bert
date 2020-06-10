@@ -1,5 +1,4 @@
 import bz2
-import io
 import pickle
 import re
 from collections import defaultdict
@@ -13,10 +12,12 @@ from pipeline_job import PipelineJob
 class CreateResolveToWikiNameDicts(PipelineJob):
     """
     Create a dictionary containing mapping Freebase Ids and Wikipedia pages ids
-    to Wikipedia page names. Here we use the already extracted mapping from DBPedia
-    that was created from a 2016 dump.
-    The mappings are used for the AIDA-CONLL benchmark to align the entity
-    annotations with the Wikipedia dump.
+    to Wikipedia page names.
+    Here we use the already extracted mapping from DBPedia that was created from
+    a 2016 dump. The disambiguations are used to detect entity annotations in
+    the AIDA-CONLL benchmark that have become incompatble for newer Wikipedia
+    versions (I was using a Wikipedia dump from 2017. This dictionary might not
+    be that fitting for the current wiki dump).
     """
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(

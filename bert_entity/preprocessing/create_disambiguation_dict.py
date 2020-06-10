@@ -13,8 +13,10 @@ class CreateDisambiguationDict(PipelineJob):
     """
     Create a dictionary containing disambiguations for Wikipedia page names.
     Here we use the already extracted mapping from DBPedia that was created from
-    a 2016 dump.
-    The disambiguations for the AIDA-CONLL benchmark.
+    a 2016 dump. The disambiguations are used to detect entity annotations in
+    the AIDA-CONLL benchmark that have become incompatble for newer Wikipedia
+    versions (I was using a Wikipedia dump from 2017. This dictionary might not
+    be that fitting for the current wiki dump).
     """
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(

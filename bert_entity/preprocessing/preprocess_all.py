@@ -56,7 +56,7 @@ for k, v in args.__dict__.items():
         args.__dict__[k] = None
 
 with open(f"data/versions/{args.data_version_name}/config.yaml", "w") as f:
-    f.writelines(["{}:\t{}\n".format(k, v) for k, v in args.__dict__.items()])
+    f.writelines(["{}: {}\n".format(k, v) for k, v in args.__dict__.items()])
 
 PipelineJob.run_jobs([
     CreateRedirects,

@@ -4,6 +4,7 @@ data_version_name: dummy
 download_data_only_dummy: True
 num_most_freq_entities: 50000
 add_missing_conll_entities: True
+uncased: True
 
 collect_mention_entities_num_workers: 10
 

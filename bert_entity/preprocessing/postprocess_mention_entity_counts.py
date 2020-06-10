@@ -11,6 +11,18 @@ from pipeline_job import PipelineJob
 
 
 class PostProcessMentionEntityCounts(PipelineJob):
+    """
+    Create entity indexes that will later be used in the creation of the Wikipedia
+    training data.
+    First, based on the configuration key "num_most_freq_entities" the top k most
+    popular entities are selected. Based on those, other mappings are created to only
+    contain counts and priors concerning the top k popular entities. Later the top k
+    popular entities will also restrict the training  data to only contain instances
+    that contain popular entities.
+    Also, if "add_missing_conll_entities" is set, the entity ids that are missing
+    in the top k popular entities we'll add the entities that are missing in the AIDA-CONLL
+    benchmark to ensure that the evaluation measures are comparable to prior work.
+    """
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(
             requires=[
@@ -21,11 +33,8 @@ class PostProcessMentionEntityCounts(PipelineJob):
             ],
             provides=[
                 f"data/versions/{opts.data_version_name}/indexes/mention_entity_counter_popular_entities.pickle",
-                # was most_common_entity_counter_dict
                 f"data/versions/{opts.data_version_name}/indexes/popular_entity_counter_dict.pickle",
-                # was most_common_entity_counter_dict_to_id
                 f"data/versions/{opts.data_version_name}/indexes/popular_entity_to_id_dict.pickle",
-                # was all_mention__most_common_entity_id_probabilies
                 f"data/versions/{opts.data_version_name}/indexes/mention_to_popular_entity_id_probabilies_dicts_dict.pickle",
         ],
             preprocess_jobs=preprocess_jobs,
@@ -82,6 +91,7 @@ class PostProcessMentionEntityCounts(PipelineJob):
                 }
             ).most_common()
 
+        # Create a mapping from entities to ids
         popular_entity_to_id_dict = OrderedDict(
             [
                 (k, eid)
@@ -91,6 +101,8 @@ class PostProcessMentionEntityCounts(PipelineJob):
             ]
         )
 
+        # Create a dictionary for the prior probablities p(e|m) of mentions to
+        # ids of popular entities
         mention_to_popular_entity_id_probabilies_dicts_dict = {
             m: {
                 popular_entity_to_id_dict[ename]: count
@@ -101,28 +113,24 @@ class PostProcessMentionEntityCounts(PipelineJob):
             for m, entities in mention_entity_counter_popular_entities.items()
         }
 
-        # was all_mention_entity_counter_most_common_entities
         with open(
             f"data/versions/{self.opts.data_version_name}/indexes/mention_entity_counter_popular_entities.pickle",
             "wb",
         ) as f:
             pickle.dump(mention_entity_counter_popular_entities, f)
 
-        # was most_common_entity_counter_dict
         with open(
             f"data/versions/{self.opts.data_version_name}/indexes/popular_entity_counter_dict.pickle",
             "wb",
         ) as f:
             pickle.dump(popular_entity_counter_dict, f)
 
-        # was most_common_entity_counter_dict_to_id
         with open(
             f"data/versions/{self.opts.data_version_name}/indexes/popular_entity_to_id_dict.pickle",
             "wb",
         ) as f:
             pickle.dump(popular_entity_to_id_dict, f)
 
-        # was all_mention__most_common_entity_id_probabilies
         with open(
             f"data/versions/{self.opts.data_version_name}/indexes/mention_to_popular_entity_id_probabilies_dicts_dict.pickle",
             "wb",

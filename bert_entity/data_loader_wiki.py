@@ -17,12 +17,13 @@ class EDLDataset(data.Dataset):
         if split == "train":
             loc_file_name = args.train_loc_file
             self.data_dir = args.train_data_dir
-        if split == "small_valid":
-            loc_file_name = args.small_valid_loc_file
-            self.data_dir = args.valid_data_dir
-        if split == "valid":
+        elif split == "valid":
             loc_file_name = args.valid_loc_file
             self.data_dir = args.valid_data_dir
+        elif split == "test":
+            loc_file_name = args.test_loc_file
+            self.data_dir = args.test_data_dir
+
 
         self.data_path = f"data/versions/{args.data_version_name}/wiki_training/integerized/{args.wiki_lang_version}/"
         self.item_locs = None

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import time
@@ -10,7 +11,7 @@ from data_loader_conll import CONLLEDLDataset
 from data_loader_wiki import EDLDataset
 from model import Net
 from model_conll import ConllNet
-from train_util import get_args, set_up_checkpoint_and_log_dir
+from train_util import get_args
 from vocab import Vocab
 
 
@@ -53,69 +54,65 @@ if __name__ == "__main__":
     criterion = nn.BCEWithLogitsLoss()
 
     # set up the datasets and dataloaders
-    train_dataset = getattr(Datasets, args.dataset)(args, split="train", vocab=vocab, device=args.device, label_size=args.label_size)
-    eval_dataset = getattr(Datasets, args.dataset)(args, split="valid", vocab=vocab, device=args.eval_device)
-    train_iter = train_dataset.get_data_iter(args=args, batch_size=args.batch_size, vocab=vocab, train=True)
-    eval_iter = eval_dataset.get_data_iter(args=args, batch_size=args.eval_batch_size, vocab=vocab, train=False)
-
-
-    set_up_checkpoint_and_log_dir(args)
+    if not args.eval_on_test_only:
+        train_dataset = getattr(Datasets, args.dataset)(
+            args, split="train", vocab=vocab, device=args.device, label_size=args.label_size
+        )
+        train_iter = train_dataset.get_data_iter(args=args, batch_size=args.batch_size, vocab=vocab, train=True)
+        eval_dataset = getattr(Datasets, args.dataset)(args, split="valid", vocab=vocab, device=args.eval_device)
+        eval_iter = eval_dataset.get_data_iter(args=args, batch_size=args.eval_batch_size, vocab=vocab, train=False)
+    else:
+        eval_dataset = getattr(Datasets, args.dataset)(args, split="test", vocab=vocab, device=args.eval_device)
+        eval_iter = eval_dataset.get_data_iter(args=args, batch_size=args.eval_batch_size, vocab=vocab, train=False)
 
     start_epoch = 1
-    if checkpoint:
+    if checkpoint and not args.resume_reset_epoch:
         start_epoch = checkpoint["epoch"]
 
     metrics = Metrics()
 
-    if args.eval_before_training:
-        logging.info("Evaluate before entering training loop")
+    if args.eval_before_training or args.eval_on_test_only:
+        cloned_args = copy.deepcopy(args)
+        cloned_args.dont_save_checkpoints = True
         metrics = model_class.evaluate(
-            args,
+            cloned_args,
             model,
             eval_iter,
             optimizers=optimizers,
             step=0,
             epoch=0,
             save_checkpoint=False,
-            save_csv=False,
+            save_csv=args.eval_on_test_only,
             vocab=vocab,
             metrics=metrics,
         )
 
-    for epoch in range(start_epoch, args.n_epochs + 1):
+    if not args.eval_on_test_only:
+        for epoch in range(start_epoch, args.n_epochs + 1):
 
-        start = time.time()
+            start = time.time()
 
-        model.finetuning = epoch >= args.finetuning if args.finetuning >= 0 else False
+            model.finetuning = epoch >= args.finetuning if args.finetuning >= 0 else False
 
-        metrics = model_class.train_one_epoch(
-            args=args,
-            model=model,
-            train_iter=train_iter,
-            optimizers=optimizers,
-            criterion=criterion,
-            vocab=vocab,
-            eval_iter=eval_iter,
-            epoch=epoch,
-            metrics=metrics,
-        )
+            metrics = model_class.train_one_epoch(
+                args=args,
+                model=model,
+                train_iter=train_iter,
+                optimizers=optimizers,
+                criterion=criterion,
+                vocab=vocab,
+                eval_iter=eval_iter,
+                epoch=epoch,
+                metrics=metrics,
+            )
 
-        logging.info(f"Evaluate in epoch {epoch}")
-        metrics = model_class.evaluate(
-            args,
-            model,
-            eval_iter,
-            optimizers=optimizers,
-            step=0,
-            epoch=epoch,
-            vocab=vocab,
-            metrics=metrics,
-        )
+            logging.info(f"Evaluate in epoch {epoch}")
+            metrics = model_class.evaluate(
+                args, model, eval_iter, optimizers=optimizers, step=0, epoch=epoch, vocab=vocab, metrics=metrics,
+            )
 
-        logging.info(f"{time.time() - start} per epoch")
+            logging.info(f"{time.time() - start} per epoch")
 
-        if lr_schedulers:
-            for lr_scheduler in lr_schedulers:
-                lr_scheduler.step(metrics.get_model_selection_metric())
-
-
+            if lr_schedulers:
+                for lr_scheduler in lr_schedulers:
+                    lr_scheduler.step(metrics.get_model_selection_metric())

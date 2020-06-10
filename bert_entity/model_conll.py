@@ -292,31 +292,34 @@ class ConllNet(nn.Module):
         metrics=Metrics(),
     ):
 
+        logging.info(f"Start evaluation on split {'test' if args.eval_on_test_only else 'valid'}")
+
         model.eval()
         model.to(args.device, args.eval_device)
 
-        # all_words, all_tags, all_y, all_y_hat, all_y_hat_gold_mentions, all_logits, all_predicted, all_token_ids = [], [], [], [], [], [], [], []
+        chunk_len = args.create_integerized_training_instance_text_length
+        chunk_overlap = args.create_integerized_training_instance_text_overlap
 
         all_words = list()
-        all_tags = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_y = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_y_hat = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_segm_preds = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_y_hat_gold_mentions = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_logits = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_predicted = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
-        all_token_ids = [0] * (len(iterator) * args.eval_batch_size * (args.chunk_len))
+        all_tags = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_y = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_y_hat = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_segm_preds = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_y_hat_gold_mentions = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_logits = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_predicted = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
+        all_token_ids = [0] * (len(iterator) * args.eval_batch_size * (chunk_len))
 
-        all_y_hat_scores = torch.ones(len(iterator) * args.eval_batch_size * (args.chunk_len)) * -1e10
-        all_y_hat_gold_mentions_scores = torch.ones(len(iterator) * args.eval_batch_size * (args.chunk_len)) * -1e10
+        all_y_hat_scores = torch.ones(len(iterator) * args.eval_batch_size * (chunk_len)) * -1e10
+        all_y_hat_gold_mentions_scores = torch.ones(len(iterator) * args.eval_batch_size * (chunk_len)) * -1e10
 
-        best_scores = torch.ones(len(iterator) * args.eval_batch_size * (args.chunk_len)) * -1e10
+        best_scores = torch.ones(len(iterator) * args.eval_batch_size * (chunk_len)) * -1e10
 
         offset = 0
         last_doc = -1
 
-        # new_best_top1_logit = torch.ones((args.chunk_len))
-        # new_best_top2_logit_gold_mentions = torch.ones((args.chunk_len))
+        # new_best_top1_logit = torch.ones((chunk_len))
+        # new_best_top2_logit_gold_mentions = torch.ones((chunk_len))
 
         with torch.no_grad():
 
@@ -366,28 +369,28 @@ class ConllNet(nn.Module):
 
                     if last_doc >= 0:
                         if last_doc == batch_doc_ids[batch_id]:
-                            next_step = args.chunk_len - args.chunk_overlap
+                            next_step = chunk_len - chunk_overlap
                         else:
                             last_doc = batch_doc_ids[batch_id]
-                            next_step = args.chunk_len
+                            next_step = chunk_len
 
                         offset += next_step
                     else:
                         last_doc = batch_doc_ids[batch_id]
 
-                    new_best_top1_logit = top1_logit[batch_id] > best_scores[offset : offset + args.chunk_len]
+                    new_best_top1_logit = top1_logit[batch_id] > best_scores[offset : offset + chunk_len]
                     new_best_top2_logit_gold_mentions = (
-                        top2_logit_gold_mentions[batch_id] > best_scores[offset : offset + args.chunk_len]
+                        top2_logit_gold_mentions[batch_id] > best_scores[offset : offset + chunk_len]
                     )
 
-                    all_y_hat_scores[offset : offset + args.chunk_len] = (
+                    all_y_hat_scores[offset : offset + chunk_len] = (
                         new_best_top1_logit.float() * top1_logit[batch_id]
-                        + (1.0 - new_best_top1_logit.float()) * all_y_hat_scores[offset : offset + args.chunk_len]
+                        + (1.0 - new_best_top1_logit.float()) * all_y_hat_scores[offset : offset + chunk_len]
                     )
-                    all_y_hat_gold_mentions_scores[offset : offset + args.chunk_len] = (
+                    all_y_hat_gold_mentions_scores[offset : offset + chunk_len] = (
                         new_best_top2_logit_gold_mentions.float() * top1_logit[batch_id]
                         + (1.0 - new_best_top2_logit_gold_mentions.float())
-                        * all_y_hat_gold_mentions_scores[offset : offset + args.chunk_len]
+                        * all_y_hat_gold_mentions_scores[offset : offset + chunk_len]
                     )
 
                     for tok_id, label_id in enumerate(seq):
@@ -416,14 +419,14 @@ class ConllNet(nn.Module):
                         all_token_ids[offset + tok_id] = batch_token_ids[batch_id][tok_id].item()
                         all_logits[offset + tok_id] = top1_probs[batch_id][tok_id].item()
 
-        all_tags = all_tags[: offset + args.chunk_len]
-        all_y = all_y[: offset + args.chunk_len]
-        all_y_hat = all_y_hat[: offset + args.chunk_len]
-        all_y_hat_gold_mentions = all_y_hat_gold_mentions[: offset + args.chunk_len]
-        all_logits = all_logits[: offset + args.chunk_len]
-        all_predicted = all_predicted[: offset + args.chunk_len]
-        all_token_ids = all_token_ids[: offset + args.chunk_len]
-        all_segm_preds = all_segm_preds[: offset + args.chunk_len]
+        all_tags = all_tags[: offset + chunk_len]
+        all_y = all_y[: offset + chunk_len]
+        all_y_hat = all_y_hat[: offset + chunk_len]
+        all_y_hat_gold_mentions = all_y_hat_gold_mentions[: offset + chunk_len]
+        all_logits = all_logits[: offset + chunk_len]
+        all_predicted = all_predicted[: offset + chunk_len]
+        all_token_ids = all_token_ids[: offset + chunk_len]
+        all_segm_preds = all_segm_preds[: offset + chunk_len]
 
         for chunk in create_overlapping_chunks(all_token_ids, 512, 0):
             all_words.extend(vocab.tokenizer.convert_ids_to_tokens(chunk))

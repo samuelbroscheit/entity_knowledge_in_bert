@@ -11,6 +11,12 @@ from pipeline_job import PipelineJob
 
 
 class CreateKeywordProcessor(PipelineJob):
+    """
+    Create a matcher to detect mentions that we found with Wikiextractor in free text.
+    We use this later to add more annotations to the text. However, as we do not know
+    the true entity, we'll associate labels for all entities from the with their
+    p(e|m) prior.
+    """
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(
             requires=[

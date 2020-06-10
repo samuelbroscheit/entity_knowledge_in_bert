@@ -94,12 +94,12 @@ class Metrics:
 
     def to_csv(self, epoch, step, args):
         header = (
-            list(self.meta.keys())
+            [k for k in list(self.meta.keys()) if k in self.__dict__]
             if not os.path.exists("{}/log.csv".format(args.logdir))
             else False
         )
         pandas.DataFrame(
-            [[self.__dict__[k] for k in list(self.meta.keys())]]
+            [[self.__dict__[k] for k in list(self.meta.keys()) if k in self.__dict__]]
         ).to_csv(f"{args.logdir}/log.csv", mode="a", header=header)
 
     def dict(self):

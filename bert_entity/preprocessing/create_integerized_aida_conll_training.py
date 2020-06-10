@@ -1,17 +1,9 @@
-import multiprocessing
-import os
 import pickle
-import random
-from collections import Counter
-from itertools import cycle
 from typing import Dict
 
-from tqdm import tqdm
-
-from misc import unescape, create_chunks, create_overlapping_chunks
 from pipeline_job import PipelineJob
 from pytorch_pretrained_bert import BertTokenizer
-from vocab import Vocab
+
 
 class CreateIntegerizedCONLLTrainingData(PipelineJob):
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
