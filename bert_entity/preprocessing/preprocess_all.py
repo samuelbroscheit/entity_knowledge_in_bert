@@ -24,6 +24,7 @@ parser.add_argument("--debug", type=argparse_bool_type, default=False)
 parser.add_argument("--wiki_lang_version", type=str, help="wiki language version", default="enwiki")
 parser.add_argument("--data_version_name", type=str, help="data identifier/version")
 parser.add_argument("--download_data_only_dummy", type=argparse_bool_type, help="only download one wiki file")
+parser.add_argument("--download_2017_enwiki", type=argparse_bool_type, help="download the enwiki 2017 dump to reproduce the experiments for the CONLL 2019 paper", default=True)
 parser.add_argument("--num_most_freq_entities", type=int, help="")
 parser.add_argument("--add_missing_conll_entities", type=argparse_bool_type, help="")
 parser.add_argument("--uncased", type=argparse_bool_type, default=True)
@@ -44,6 +45,10 @@ parser.add_argument("--create_integerized_training_valid_size", type=int, defaul
 parser.add_argument("--create_integerized_training_test_size", type=int, default="1000")
 
 args = parser.parse_args()
+
+if args.download_2017_enwiki:
+    if len(args.wiki_lang_version) > 0 and args.wiki_lang_version != 'enwiki':
+        raise Exception(f"The configuration was set to 'download_2017_enwiki=True' but wiki_lang_version was set to {args.wiki_lang_version}.")
 
 if args.debug:
     logging.basicConfig(level=logging.DEBUG)

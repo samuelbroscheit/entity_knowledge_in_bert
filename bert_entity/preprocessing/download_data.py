@@ -1,3 +1,4 @@
+import os
 import subprocess
 from typing import Dict
 
@@ -9,12 +10,11 @@ class DownloadWikiDump(PipelineJob):
     Download the current Wikipedia dump. Either download one file for a dummy / prototyping version
     (set download_data_only_dummy to True). Or all download files.
     """
+
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(
             requires=[],
-            provides=[
-                f"data/versions/{opts.data_version_name}/downloads/{opts.wiki_lang_version}/"
-            ],
+            provides=[f"data/versions/{opts.data_version_name}/downloads/{opts.wiki_lang_version}/"],
             preprocess_jobs=preprocess_jobs,
             opts=opts,
         )
@@ -23,6 +23,11 @@ class DownloadWikiDump(PipelineJob):
 
         self.log(f"Downloading {self.opts.wiki_lang_version}")
         if self.opts.download_data_only_dummy:
+            if self.opts.download_2017_enwiki:
+                url = "https://archive.org/download/enwiki-20171001/enwiki-20171001-pages-articles1.xml-p10p30302.bz2"
+            else:
+                url = f"https://dumps.wikimedia.org/{self.opts.wiki_lang_version}/latest/{self.opts.wiki_lang_version}-latest-pages-articles1.xml-*.bz2"
+
             subprocess.check_call(
                 [
                     "wget",
@@ -30,12 +35,17 @@ class DownloadWikiDump(PipelineJob):
                     "-l1",
                     "-np",
                     "-nd",
-                    "https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles1.xml-p1p30303.bz2",
+                    url,
                     "-P",
-                    f"data/versions/{self.opts.data_version_name}/downloads/{self.opts.wiki_lang_version}/",
+                    f"data/versions/{self.opts.data_version_name}/downloads/tmp/",
+                    # f"data/versions/{self.opts.data_version_name}/downloads/{self.opts.wiki_lang_version}/",
                 ]
             )
         else:
+            if self.opts.download_2017_enwiki:
+                url = "https://archive.org/download/enwiki-20171001/"
+            else:
+                url = f"https://dumps.wikimedia.org/{self.opts.wiki_lang_version}/latest/"
             subprocess.check_call(
                 [
                     "wget",
@@ -43,13 +53,19 @@ class DownloadWikiDump(PipelineJob):
                     "-l1",
                     "-np",
                     "-nd",
-                    f"https://dumps.wikimedia.org/{self.opts.wiki_lang_version}/latest/",
+                    url,
                     "-A",
                     f"{self.opts.wiki_lang_version}-latest-pages-articles*.xml-*.bz2",
                     "-R",
                     f"{self.opts.wiki_lang_version}-latest-pages-articles-multistream*.xml-*.bz2",
                     "-P",
-                    f"data/versions/{self.opts.data_version_name}/downloads/{self.opts.wiki_lang_version}/",
+                    f"data/versions/{self.opts.data_version_name}/downloads/tmp/",
                 ]
             )
+
+        os.rename(
+            f"data/versions/{self.opts.data_version_name}/downloads/tmp/",
+            f"data/versions/{self.opts.data_version_name}/downloads/{self.opts.wiki_lang_version}/",
+        )
+
         self.log("Download finished ")
