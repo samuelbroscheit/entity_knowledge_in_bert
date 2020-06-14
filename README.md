@@ -156,17 +156,17 @@ In the config folder you will find two configurations:
 
 ### Preprocessing tasks
 
-It consists of the following tasks (the respective code is in `bert_entity/preprocessing`):
+Preprocessing consists of the following tasks (the respective code is in `bert_entity/preprocessing`):
 
 - CreateRedirects
-  - Create a dictionary containing redirects for Wikipedia page names [(*)](#(*)). The redirects are used for the Wikipedia mention extractions as well as for the AIDA-CONLL benchmark. 
+  - Create a dictionary containing redirects for Wikipedia page names [(*)](#footnote1). The redirects are used for the Wikipedia mention extractions as well as for the AIDA-CONLL benchmark. 
   
       ```  
       "AccessibleComputing": "Computer_accessibility"
       ```
     
 - CreateResolveToWikiNameDicts
-    - Create a dictionary that map Freebase Ids and Wikipedia pages ids to Wikipedia page names [(*)](#(*)). The disambiguations are used to detect entity annotations in the AIDA-CONLL benchmark that have become incompatible for newer Wikipedia versions.
+    - Create a dictionary that map Freebase Ids and Wikipedia pages ids to Wikipedia page names [(*)](#footnote1). The disambiguations are used to detect entity annotations in the AIDA-CONLL benchmark that have become incompatible for newer Wikipedia versions.
 
       ```  
       "/m/01009ly3": "Dysdera_ancora"
@@ -177,7 +177,7 @@ It consists of the following tasks (the respective code is in `bert_entity/prepr
       ```
 
 - CreateDisambiguationDict
-    - Create a dictionary containing disambiguations for Wikipedia page names [(*)](#(*)). The disambiguations are used to detect entity annotations in
+    - Create a dictionary containing disambiguations for Wikipedia page names [(*)](#footnote1). The disambiguations are used to detect entity annotations in
     the AIDA-CONLL benchmark that have become incompatble for newer Wikipedia
     versions.
 
