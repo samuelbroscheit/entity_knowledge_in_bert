@@ -16,52 +16,52 @@ The content of this page covers the following topics:
 
 For the impatient here are all the steps to run the prototyping setup:
 
-To install run the following commands:
+- The project is installed as follows:
 
-```
-git clone https://github.com/samuelbroscheit/entity_knowledge_in_bert.git
-cd entity_knowledge_in_bert
-pip install -r requirements.txt
-git submodule update --init
-```
+    ```
+    git clone https://github.com/samuelbroscheit/entity_knowledge_in_bert.git
+    cd entity_knowledge_in_bert
+    pip install -r requirements.txt
+    git submodule update --init
+    ```
 
-Add paths to environment
+- Add paths to environment
 
-```
-source setup_paths
-```
+    ```
+    source setup_paths
+    ```
 
-Create directory
+- Create directory
 
-```
-mkdir -p data/benchmarks/
-```
+    ```
+    mkdir -p data/benchmarks/
+    ```
 
-The AIDA-CoNLL benchmark file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Get it from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/ . Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+    The AIDA-CoNLL benchmark file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Get it from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/ . Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
 
-Run preprocessing
+- Run preprocessing
 
-```
-python bert_entity/preprocess_all.py -c config/dummy__preprocess.yaml
-```
+    ```
+    python bert_entity/preprocess_all.py -c config/dummy__preprocess.yaml
+    ```
 
-Run pretraining on Wikipedia
+- Run pretraining on Wikipedia
 
-```
-python bert_entity/train.py -c config/dummy__train_on_wiki.yaml
-```
+    ```
+    python bert_entity/train.py -c config/dummy__train_on_wiki.yaml
+    ```
 
-Finetune on AIDA-CoNLL benchmark
+- Finetune on AIDA-CoNLL benchmark
 
-```
-python bert_entity/train.py -c config/dummy__train_on_aida_conll.yaml
-```
+    ```
+    python bert_entity/train.py -c config/dummy__train_on_aida_conll.yaml
+    ```
 
-Evaluate the best model on the AIDA-CoNLL benchmark
+- Evaluate the best model on the AIDA-CoNLL benchmark
 
-```
-python bert_entity/train.py -c config/dummy__train_on_aida_conll.yaml --eval_on_test_only True --resume_from_checkpoint data/checkpoints/dummy_aidaconll_00001/best_f1-0.pt
-```
+    ```
+    python bert_entity/train.py -c config/dummy__train_on_aida_conll.yaml --eval_on_test_only True --resume_from_checkpoint data/checkpoints/dummy_aidaconll_00001/best_f1-0.pt
+    ```
 
 
 
