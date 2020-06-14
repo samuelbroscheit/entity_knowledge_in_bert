@@ -12,6 +12,59 @@ The content of this page covers the following topics:
 4. [Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark](#training)
 5. [Using a BERT-Entity model in a downstream task](#evalation-on-downstream-tasks)
 
+## Quick start
+
+For the impatient here are all the steps to run the prototyping setup:
+
+To install run the following commands:
+
+```
+git clone https://github.com/samuelbroscheit/entity_knowledge_in_bert.git
+cd entity_knowledge_in_bert
+pip install -r requirements.txt
+git submodule update --init
+```
+
+Add paths to environment
+
+```
+source setup_paths
+```
+
+Create directory
+
+```
+mkdir -p data/benchmarks/
+```
+
+The AIDA-CoNLL benchmark file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Get it from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/ . Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+
+Run preprocessing
+
+```
+python bert_entity/preprocess_all.py -c config/dummy__preprocess.yaml
+```
+
+Run pretraining on Wikipedia
+
+```
+python bert_entity/train.py -c config/dummy__train_on_wiki.yaml
+```
+
+Finetune on AIDA-CoNLL benchmark
+
+```
+python bert_entity/train.py -c config/dummy__train_on_aida_conll.yaml
+```
+
+Evaluate the best model on the AIDA-CoNLL benchmark
+
+```
+python bert_entity/train.py -c config/dummy__train_on_aida_conll.yaml --eval_on_test_only True --resume_from_checkpoint data/checkpoints/dummy_aidaconll_00001/best_f1-0.pt
+```
+
+
+
 ## Preparation and Installation
 
 For downloading and processing the full data and for storing checkpoints you should have at least 500GB of free space in the respective filesystem. If you just want to prototype there are also prepared configurations that need less space (~100GB).
@@ -43,6 +96,7 @@ mkdir -p data/benchmarks/
 ```
 
 and then retrieve the AIDA CoNLL-YAGO2 benchmark from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/ (the benchmark is referred to as AIDA Conll throughout the code). The resulting file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+
 
 ## Preprocessing data
 
@@ -242,13 +296,24 @@ Once you have alle the preprocessing done, you can run the training on Wikipidia
 
 ### Run training
 
-You run the training with:
+Run the training with:
 
 ```  
 python bert_entity/train.py -c TRAIN_CONFIG_FILE_NAME 
 ```  
 
 TRAIN_CONFIG_FILE_NAME is a yaml file, but all options can also be given on the command line. 
+
+
+### Run evaluation
+
+Run evaluation with:
+
+```  
+python bert_entity/train.py -c TRAIN_CONFIG_FILE_NAME  --eval_on_test_only True --resume_from_checkpoint LOGDIR/best_f1-0.pt
+```  
+
+LOGDIR is the path that was set in TRAIN_CONFIG_FILE_NAME with key `logdir` . 
 
 ### Prepared configurations
 
@@ -271,7 +336,7 @@ In the config folder you will find the following configurations:
 ```
   --debug                               DEBUG
 
-  --logdir                              out dir where checkpints and logfiles are stored
+  --logdir                              LOGDIR; the output dir where checkpints and logfiles are stored
 
   --data_workers                        number of data workers to prepare training instances
 
