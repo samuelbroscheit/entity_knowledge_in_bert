@@ -20,7 +20,6 @@ finetuning:  1
 sparse:  True
 encoder_lr:  5e-5
 decoder_lr:  0
-regularization: 0
 n_epochs: 60
 segm_decoder_lr:	0
 segm_decoder_weight_decay:	1e-10
