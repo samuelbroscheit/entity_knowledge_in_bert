@@ -229,7 +229,7 @@ Preprocessing consists of the following tasks (the respective code is in `bert_e
     and `create_integerized_training_instance_text_overlap`.
 
 ###### Footnote 
-Here we use an already extracted mapping provided by DBPedia that was created from a 2016 dump. Please note that in the experiments for the paper a Wikipedia dump from 2017 was used. The DbPedia dictionaries might not  be adequate for the latest wiki dumps.
+_Here we use an already extracted mapping provided by DBPedia that was created from a 2016 dump. Please note that in the experiments for the paper a Wikipedia dump from 2017 was used. The DbPedia dictionaries might not  be adequate for the latest wiki dumps._
 
 
 
