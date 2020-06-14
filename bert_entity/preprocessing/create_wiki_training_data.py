@@ -80,7 +80,12 @@ class CreateWikiTrainingData(PipelineJob):
         #
         # start the workers in individual processes
         #
-        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
+
+        if self.opts.uncased:
+            tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
+        else:
+            tokenizer = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
+
         for id in range(self.opts.create_training_data_num_workers):
             worker = Worker(
                 in_queue,
