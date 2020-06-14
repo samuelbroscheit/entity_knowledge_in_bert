@@ -159,14 +159,14 @@ In the config folder you will find two configurations:
 Preprocessing consists of the following tasks (the respective code is in `bert_entity/preprocessing`):
 
 - CreateRedirects
-  - Create a dictionary containing redirects for Wikipedia page names [(*)](#footnote1). The redirects are used for the Wikipedia mention extractions as well as for the AIDA-CONLL benchmark. 
+  - Create a dictionary containing redirects for Wikipedia page names [(*)](#footnote). The redirects are used for the Wikipedia mention extractions as well as for the AIDA-CONLL benchmark. 
   
       ```  
       "AccessibleComputing": "Computer_accessibility"
       ```
     
 - CreateResolveToWikiNameDicts
-    - Create a dictionary that map Freebase Ids and Wikipedia pages ids to Wikipedia page names [(*)](#footnote1). The disambiguations are used to detect entity annotations in the AIDA-CONLL benchmark that have become incompatible for newer Wikipedia versions.
+    - Create a dictionary that map Freebase Ids and Wikipedia pages ids to Wikipedia page names [(*)](#footnote). The disambiguations are used to detect entity annotations in the AIDA-CONLL benchmark that have become incompatible for newer Wikipedia versions.
 
       ```  
       "/m/01009ly3": "Dysdera_ancora"
@@ -177,7 +177,7 @@ Preprocessing consists of the following tasks (the respective code is in `bert_e
       ```
 
 - CreateDisambiguationDict
-    - Create a dictionary containing disambiguations for Wikipedia page names [(*)](#footnote1). The disambiguations are used to detect entity annotations in
+    - Create a dictionary containing disambiguations for Wikipedia page names [(*)](#footnote). The disambiguations are used to detect entity annotations in
     the AIDA-CONLL benchmark that have become incompatble for newer Wikipedia
     versions.
 
@@ -228,7 +228,7 @@ Preprocessing consists of the following tasks (the respective code is in `bert_e
     - Create overlapping chunks of the benchmark articles. Outputs are stored as Python lists with integer ids. Configured by `create_integerized_training_instance_text_length` 
     and `create_integerized_training_instance_text_overlap`.
 
-###### (*) 
+###### Footnote 
 Here we use an already extracted mapping provided by DBPedia that was created from a 2016 dump. Please note that in the experiments for the paper a Wikipedia dump from 2017 was used. The DbPedia dictionaries might not  be adequate for the latest wiki dumps.
 
 
