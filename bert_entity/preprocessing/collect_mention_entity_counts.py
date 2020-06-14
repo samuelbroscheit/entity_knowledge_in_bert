@@ -129,7 +129,7 @@ class Worker(multiprocessing.Process):
         local_linked_mention_counter = Counter()
         local_mention_entity_counter = Counter()
 
-        with io.open(file_name) as f:
+        with open(file_name) as f:
 
             for i, wiki_article in enumerate(f.readlines()):
 

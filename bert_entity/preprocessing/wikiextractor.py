@@ -41,6 +41,7 @@ class Wikiextractor(PipelineJob):
         ):
             self.log(input_file)
             sys.argv = [
+                "",
                 "--json",
                 "--filter_disambig_pages",
                 "--collect_links",
