@@ -30,7 +30,7 @@ source setup_paths
 The preprocessing pipeline will take care of all downloads and processing of the data. You run the preprocessing with:
 
 ```  
-python bert_entity -c CONFIG_FILE_NAME
+python bert_entity/preprocess_all.py -c CONFIG_FILE_NAME
 ```  
 
 CONFIG_FILE_NAME is a yaml file, see for example [dummy__preprocess.yaml](config/dummy__preprocess.yaml) and takes the following options (can also be given on the command line). 
