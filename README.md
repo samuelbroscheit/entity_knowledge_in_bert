@@ -1,6 +1,6 @@
 # "Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"  
 
-This repository contains the code for the CONLL 2019 paper [**"Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"**](https://arxiv.org/abs/2003.05473). The code is provided as a documentation for the paper and for follow up research on the topic.
+This repository contains the code for the CONLL 2019 paper [**"Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"**](https://arxiv.org/abs/2003.05473). The code is provided as a documentation for the paper and also for follow-up research.
 
 The code in this project is for the following stages: 
 
