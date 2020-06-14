@@ -63,6 +63,8 @@ for k, v in args.__dict__.items():
 with open(f"data/versions/{args.data_version_name}/config.yaml", "w") as f:
     f.writelines(["{}: {}\n".format(k, v) for k, v in args.__dict__.items()])
 
+os.makedirs('data')
+
 PipelineJob.run_jobs([
     CreateRedirects,
     CreateResolveToWikiNameDicts,

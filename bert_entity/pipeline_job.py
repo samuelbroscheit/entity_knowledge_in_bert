@@ -38,6 +38,7 @@ class PipelineJob(Job):
     def run(self, pipeline_jobs: Dict[str, Any]):
         self.log(f"Checking requirements for {self.__class__.__name__}")
         self.check_required_exist(pipeline_jobs)
+        self.create_out_directories()
         if not self.provides_exists():
             self.log(f"Start running {self.__class__.__name__}")
             self._run()
@@ -74,11 +75,15 @@ class PipelineJob(Job):
 
     def provides_exists(self,):
         if self.rerun_job:
-            return True
+            return False
         for file_name in self.provides:
             if not os.path.exists(file_name):
                 return False
         return True
+
+    def create_out_directories(self,):
+        for file_name in self.provides:
+            os.makedirs(os.path.dirname(file_name), exist_ok=True)
 
     @staticmethod
     def run_jobs(job_classes: List, opts):
