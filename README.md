@@ -28,7 +28,15 @@ Every time you run the code you have to setup up the paths for python with
 source setup_paths
 ```
 
-You have to provide `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+### Prepare benchmark data
+
+First create the directory
+
+```
+mkdir -p data/benchmarks/
+```
+
+and then retrieve the AIDA-CONLL benchmark from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/. The resulting file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
 
 ## Preprocessing
 
