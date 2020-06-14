@@ -1,4 +1,4 @@
-### "Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"  
+# "Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"  
 
 This repository contains the code for the CONLL 2019 paper [**"Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"**](https://arxiv.org/abs/2003.05473). The code is provided as a documentation for the paper and for follow up research on the topic.
 
@@ -9,7 +9,7 @@ The code in this project is for the following stages:
 - Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark
 - Using a BERT-Entity model in a downstream task
 
-##### Prepare
+## Prepare
 
 To get started please install the requirements with 
 
@@ -25,7 +25,7 @@ Every time you run the code you have to setup up the paths for python with
 source setup_paths
 ```
 
-##### Preprocessing
+## Preprocessing
 
 The preprocessing pipeline will take care of all downloads and processing of the data. You run the preprocessing with:
 
@@ -193,7 +193,7 @@ It consists of the following steps (the respective code is in `bert_entity/prepr
 
 
 
-##### Training
+## Training
 
 Once you have alle the preprocessing done, you can run the training on Wikipidia to learn a BERT-Entity model. When you have learned a BERT-Entity model on Wikipedia you can resume it to finetune it on the AIDA-CONLL benchmark. The command to run training is
 
@@ -260,6 +260,6 @@ CONFIG_FILE_NAME is a yaml file, see for example [dummy_train_on_wiki.yaml](conf
 ```
 
 
-##### Evalation on downstream tasks
+## Evalation on downstream tasks
 
 See files in `downstream_tasks`. Documentation is a TODO.
