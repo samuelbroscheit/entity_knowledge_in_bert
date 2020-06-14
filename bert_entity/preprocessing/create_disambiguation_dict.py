@@ -23,6 +23,7 @@ class CreateDisambiguationDict(PipelineJob):
             requires=["data/indexes/redirects_en.ttl.bz2.dict"],
             provides=[
                 "data/indexes/disambiguations_en.ttl.bz2.dict",
+                "data/downloads/disambiguations_en.ttl.bz2",
             ],
             preprocess_jobs=preprocess_jobs,
             opts=opts,

@@ -25,7 +25,9 @@ class CreateResolveToWikiNameDicts(PipelineJob):
             requires=["data/indexes/redirects_en.ttl.bz2.dict"],
             provides=[
                 "data/indexes/freebase_links_en.ttl.bz2.dict",
+                "data/downloads/freebase_links_en.ttl.bz2",
                 "data/indexes/page_ids_en.ttl.bz2.dict",
+                "data/downloads/page_ids_en.ttl.bz2",
             ],
             preprocess_jobs=preprocess_jobs,
             opts=opts,

@@ -21,7 +21,10 @@ class CreateRedirects(PipelineJob):
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(
             requires=[],
-            provides=["data/indexes/redirects_en.ttl.bz2.dict"],
+            provides=[
+                "data/indexes/redirects_en.ttl.bz2.dict",
+                "data/downloads/redirects_en.ttl.bz2",
+            ],
             preprocess_jobs=preprocess_jobs,
             opts=opts,
         )
