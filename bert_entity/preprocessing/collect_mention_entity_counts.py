@@ -23,7 +23,7 @@ class CollectMentionEntityCounts(PipelineJob):
         super().__init__(
             requires=[
                 "data/indexes/redirects_en.ttl.bz2.dict",
-                f"data/versions/{opts.data_version_name}/wikiextractor_out/{opts.wiki_lang_version}/"
+                f"data/versions/{opts.data_version_name}/wikiextractor_out/{opts.wiki_lang_version}/",
             ],
             provides=[
                 f"data/versions/{opts.data_version_name}/indexes/mention_entity_counter.pickle",
@@ -48,7 +48,7 @@ class CollectMentionEntityCounts(PipelineJob):
 
         workers = list()
 
-        list_dir_string = f"data/versions/{self.opts.data_version_name}/wikiextractor_out/{self.opts.wiki_lang_version}/enwiki-latest-*/*/wiki_*"
+        list_dir_string = f"data/versions/{self.opts.data_version_name}/wikiextractor_out/{self.opts.wiki_lang_version}/{self.opts.data_version_name}*pages-articles*/*/wiki_*"
 
         #
         # start the workers in individual processes
