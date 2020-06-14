@@ -2,6 +2,7 @@ debug: False
 wiki_lang_version: enwiki
 data_version_name: conll2019
 download_data_only_dummy: False
+download_2017_enwiki: True
 num_most_freq_entities: 500000
 add_missing_conll_entities: True
 uncased: True
