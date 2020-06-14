@@ -53,7 +53,7 @@ class CollectMentionEntityCounts(PipelineJob):
         #
         # start the workers in individual processes
         #
-        for id in range(self.opts.num_workers_collect_mention_entities):
+        for id in range(self.opts.collect_mention_entities_num_workers):
             worker = Worker(in_queue, out_queue, redirects_en)
             worker.start()
             workers.append(worker)
