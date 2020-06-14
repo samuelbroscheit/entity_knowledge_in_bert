@@ -28,7 +28,7 @@ Every time you run the code you have to setup up the paths for python with
 source setup_paths
 ```
 
-### Prepare benchmark data
+#### Prepare benchmark data
 
 First create the directory
 
