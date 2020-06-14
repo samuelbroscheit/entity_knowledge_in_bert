@@ -2,14 +2,20 @@
 
 This repository contains the code for the CONLL 2019 paper [**"Investigating Entity Knowledge in BERT with Simple Neural End-To-End Entity Linking"**](https://arxiv.org/abs/2003.05473). The code is provided as a documentation for the paper and also for follow-up research.
 
+# <img src="docs/Bert-Entity.png" alt="Bert-Entity" width="80%">
+
 The code in this project is for the following stages: 
 
-- Preprocessing of Wikipedia and the AIDA-CONLL entity linking benchmark into a sequence tagging format.
-- Finetuning/Training a BERT-Entity model on Wikipedia
-- Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark
-- Using a BERT-Entity model in a downstream task
+1. [Preprocessing of Wikipedia and the AIDA-CONLL entity linking benchmark into a sequence tagging format](#prepare)
+2. [Finetuning/Training a BERT-Entity model on Wikipedia](#training)
+3. [Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark](#training)
+4. [Using a BERT-Entity model in a downstream task](#evalation-on-downstream-tasks)
 
 ## Prepare
+
+For downloading and processing the full data and for storing checkpoints you should have at least 500GB of free space in the respective filesystem. If you just want to prototype there are also prepared configurations that need less space (~100GB).
+
+#### Installation
 
 To get started please install the requirements with 
 
@@ -19,8 +25,7 @@ cd entity_knowledge_in_bert
 pip install -r requirements.txt
 git submodule update --init
 ```
-
-For downloading and processing the data and for storing checkpoints you should have XXXGB of free space in the filesystem you are running this code.
+#### Setup Paths
 
 Every time you run the code you have to setup up the paths for python with
 
@@ -28,7 +33,7 @@ Every time you run the code you have to setup up the paths for python with
 source setup_paths
 ```
 
-#### Prepare benchmark data
+#### Prepare AIDA CoNLL-YAGO2 benchmark data
 
 First create the directory
 
@@ -36,17 +41,37 @@ First create the directory
 mkdir -p data/benchmarks/
 ```
 
-and then retrieve the AIDA-CONLL benchmark from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/. The resulting file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+and then retrieve the AIDA CoNLL-YAGO2 benchmark from https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/yago-naga/aida/downloads/ (the benchmark is referred to as AIDA Conll throughout the code). The resulting file should be located under `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
 
-## Preprocessing
+## Preprocessing data
+
+1. [Run preprocessing](#run-preprocessing)
+2. [Prepared configurations](#prepared-configurations)
+3. [Available options](#available-options)
+4. [Preprocessing tasks](#preprocessing-tasks)
+
+#### Run preprocessing
 
 The preprocessing pipeline will take care of all downloads and processing of the data. You run the preprocessing with:
 
 ```  
-python bert_entity/preprocess_all.py -c CONFIG_FILE_NAME
+python bert_entity/preprocess_all.py -c PREPROC_CONFIG_FILE_NAME
 ```  
 
-CONFIG_FILE_NAME is a yaml file, but all options can also be given on the command line. In the config folder you will find two configurations that already It supports the following configurations: 
+PREPROC_CONFIG_FILE_NAME is a yaml file, but all options can also be given on the command line. 
+
+#### Prepared configurations
+
+In the config folder you will find two configurations:
+
+- [config/dummy__preprocess.yaml](config/dummy__preprocess.yaml) is a setting for prototyping and testing the preprocessing pipeline and for prototyping the BERT-Entity training.
+
+- [config/conll2019__preprocess.yaml](config/conll2019__preprocess.yaml) is the setting "Setting 2" that was used in the the CoNLL 2019 paper for the BERT-Entity model with ~500K entities. 
+
+
+#### Available options
+ 
+ The PREPROC_CONFIG_FILE_NAME supports the following configurations: 
 
 
 ```  
@@ -128,19 +153,19 @@ CONFIG_FILE_NAME is a yaml file, but all options can also be given on the comman
 
 ```  
 
+#### Preprocessing tasks
 
-
-It consists of the following steps (the respective code is in `bert_entity/preprocessing`):
+It consists of the following tasks (the respective code is in `bert_entity/preprocessing`):
 
 - CreateRedirects
-  - Create a dictionary containing redirects for Wikipedia page names (*). The redirects are used for the Wikipedia mention extractions as well as for the AIDA-CONLL benchmark. 
+  - Create a dictionary containing redirects for Wikipedia page names [(*)]((*)). The redirects are used for the Wikipedia mention extractions as well as for the AIDA-CONLL benchmark. 
   
       ```  
       "AccessibleComputing": "Computer_accessibility"
       ```
     
 - CreateResolveToWikiNameDicts
-    - Create a dictionary that map Freebase Ids and Wikipedia pages ids to Wikipedia page names (*). The disambiguations are used to detect entity annotations in the AIDA-CONLL benchmark that have become incompatible for newer Wikipedia versions.
+    - Create a dictionary that map Freebase Ids and Wikipedia pages ids to Wikipedia page names [(*)]((*)). The disambiguations are used to detect entity annotations in the AIDA-CONLL benchmark that have become incompatible for newer Wikipedia versions.
 
       ```  
       "/m/01009ly3": "Dysdera_ancora"
@@ -151,7 +176,7 @@ It consists of the following steps (the respective code is in `bert_entity/prepr
       ```
 
 - CreateDisambiguationDict
-    - Create a dictionary containing disambiguations for Wikipedia page names (*). The disambiguations are used to detect entity annotations in
+    - Create a dictionary containing disambiguations for Wikipedia page names [(*)]((*)). The disambiguations are used to detect entity annotations in
     the AIDA-CONLL benchmark that have become incompatble for newer Wikipedia
     versions.
 
@@ -202,19 +227,46 @@ It consists of the following steps (the respective code is in `bert_entity/prepr
     - Create overlapping chunks of the benchmark articles. Outputs are stored as Python lists with integer ids. Configured by `create_integerized_training_instance_text_length` 
     and `create_integerized_training_instance_text_overlap`.
 
-(*) Here we use an already extracted mapping provided by DBPedia that was created from a 2016 dump. Please note that in the experiments for the paper a Wikipedia dump from 2017 was used. The DbPedia dictionaries might not  be adequate for the latest wiki dumps.
+###### (*) 
+Here we use an already extracted mapping provided by DBPedia that was created from a 2016 dump. Please note that in the experiments for the paper a Wikipedia dump from 2017 was used. The DbPedia dictionaries might not  be adequate for the latest wiki dumps.
 
 
 
 ## Training
 
-Once you have alle the preprocessing done, you can run the training on Wikipidia to learn a BERT-Entity model. When you have learned a BERT-Entity model on Wikipedia you can resume it to finetune it on the AIDA-CONLL benchmark. The command to run training is
+Once you have alle the preprocessing done, you can run the training on Wikipidia to learn a BERT-Entity model. When you have learned a BERT-Entity model on Wikipedia you can resume it to finetune it on the AIDA-CONLL benchmark. 
+
+1. [Run training](#run-training)
+2. [Prepared configurations](#prepared-configurations)
+3. [Available options](#available-options)
+
+#### Run training
+
+You run the training with:
 
 ```  
-python bert_entity/train.py -c CONFIG_FILE_NAME
+python bert_entity/train.py -c TRAIN_CONFIG_FILE_NAME 
 ```  
 
-CONFIG_FILE_NAME is a yaml file, see for example [dummy_train__on_wiki.yaml](config/dummy__train_on_wiki.yaml) and takes the following options (can also be given on the command line). 
+TRAIN_CONFIG_FILE_NAME is a yaml file, but all options can also be given on the command line. 
+
+#### Prepared configurations
+
+In the config folder you will find the following configurations:
+
+- [config/dummy__train_on_wiki.yaml](config/dummy__train_on_wiki.yaml) is a setting for prototyping the BERT-Entity training on Wikipieda.
+
+- [config/dummy__train_on_aida_conll.yaml](config/dummy__train_on_aida_conll.yaml) is a setting to finetune the best found model from `dummy__train_on_wiki.yaml` on the the aida-yago2 dataset.
+
+- [config/conll2019__train_on_wiki.yaml](config/dummy__train_on_wiki.yaml) is a setting for reproducing the BERT-Entity training on Wikipieda from the CoNLL 2019 paper.
+
+- [config/conll2019__train_on_aida_conll.yaml](config/dummy__train_on_aida_conll.yaml) is a setting to finetune the best found model from `conll2019__train_on_wiki.yaml` on the the aida-yago2 dataset to reproduce the CoNLL 2019 paper.
+
+
+
+#### Available options
+ 
+ The TRAIN_CONFIG_FILE_NAME supports the following configurations: 
 
 ```
   --debug                               DEBUG

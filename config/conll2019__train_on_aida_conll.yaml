@@ -1,5 +1,5 @@
-logdir:  data/checkpoints/conll_00001/
-resume_from_checkpoint: data/checkpoints/wiki_00001/best_f1-0.pt
+logdir:  data/checkpoints/conll2019_aidaconll_00001/
+resume_from_checkpoint: data/checkpoints/conll2019_wiki_00001/best_f1-0.pt
 resume_reset_epoch: True
 data_path_conll: data/benchmarks/aida-yago2-dataset/conll_dataset_dummy_254-20.pickle
 data_version_name: dummy
