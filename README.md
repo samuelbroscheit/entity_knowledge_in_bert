@@ -14,7 +14,10 @@ The code in this project is for the following stages:
 To get started please install the requirements with 
 
 ```
+git clone https://github.com/samuelbroscheit/entity_knowledge_in_bert.git
+cd entity_knowledge_in_bert
 pip install -r requirements.txt
+git submodule update --init
 ```
 
 For downloading and processing the data and for storing checkpoints you should have XXXGB of free space in the filesystem you are running this code.
