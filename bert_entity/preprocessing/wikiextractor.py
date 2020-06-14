@@ -48,7 +48,7 @@ class Wikiextractor(PipelineJob):
                 str(self.opts.wikiextractor_num_workers),
                 input_file,
                 "-o",
-                f"data/versions/{self.opts.data_version_name}/extracted_mentions/tmp/{os.path.basename(input_file)}",
+                f"data/versions/{self.opts.data_version_name}/wikiextractor_out/tmp/{os.path.basename(input_file)}",
             ]
             wiki_extractor_main()
         os.rename(
