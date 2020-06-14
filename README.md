@@ -195,20 +195,19 @@ Preprocessing consists of the following tasks (the respective code is in `bert_e
     - Collect mention entity counts from the Wikiextractor files.
 
 - PostProcessMentionEntityCounts
-    -   Create entity indexes that will later be used in the creation of the Wikipedia training data. First, based on the configuration key `num_most_freq_entities` the top k most popular entities are selected. Based on those, other mappings are created to only
+    - Create entity indexes that will later be used in the creation of the Wikipedia training data. First, based on the configuration key `num_most_freq_entities` the **top k most popular entities** are selected. Based on those, other mappings are created to only
     contain counts and priors concerning the top k popular entities. Later the top k popular entities will also restrict the training  data to only contain instances that contain popular entities.
-    Also, if `add_missing_conll_entities` is set, the entity ids that are missing in the top k popular entities we'll add the entities that are missing in the AIDA-CONLL benchmark to ensure that the evaluation measures are comparable to prior work. 
+    Also, if `add_missing_conll_entities` is set, the entity ids necessary for the AIDA-CONLL benchmark that are missing in the top k popular entities are added. This is to ensure that the evaluation measures are comparable to prior work. 
     
 - CreateAIDACONLL
     - Read the AIDA-CONLL benchmark dataset in and merge it with the NER annotations. Requires you to provide `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
     
 - CreateKeywordProcessor
-    - Create a matcher to detect mentions that we found with Wikiextractor in free text. We use this later to add more annotations to the text. However, as we do not know the true entity, we'll associate labels for all entities from the with their
-    p(e|m) prior.
+    - Create a tri-based matcher to detect possible mentions of our known entities. We use this later to add autmatic annotations to the text. However, as we do not know the true entity for those mentions, they will have multiple labels, i.e. for all entities from the with their p(e|m) prior.
+
 - CreateWikiTrainingData
-    - Create sequence labelling data by tokenizing with BertTokenizer and adding labels for these spans that have an associated Wikipedia link. Also, annotate spans detected by the keyword matcher that is aware of mentions that are linking to the entities
-    in our top k popular entities dictionary. Subsequently, we count the mentions in this data and create a discounted prior p(e|m)
-    and a set of necessary articles that contain the top k popular entities.
+    - Create sequence labelling data. Tokenization is done with BertTokenizer. Tokens are either have a label when they have an associated Wikipedia link, or when they are in spans detected by the keyword matcher. Subsequently, we count the mentions in this data and create a discounted prior p(e|m) and the set of necessary Wikpedia articles, i.e. all the articles that contain links to the top k popular entities.
+
 - CreateIntegerizedWikiTrainingData
     - Create overlapping chunks of the Wikipedia articles. Outputs are stored as Python lists with integer ids. Configured by `create_integerized_training_instance_text_length` 
     and `create_integerized_training_instance_text_overlap`.
