@@ -18,7 +18,7 @@ For downloading and processing the full data and for storing checkpoints you sho
 
 ### Installation
 
-To get started please install the requirements with 
+To install run the following commands:
 
 ```
 git clone https://github.com/samuelbroscheit/entity_knowledge_in_bert.git
@@ -28,7 +28,7 @@ git submodule update --init
 ```
 ### Setup Paths
 
-Every time you run the code you have to setup up the paths for python with
+**Every time** you run the code you have to setup up the paths for python with
 
 ```
 source setup_paths
