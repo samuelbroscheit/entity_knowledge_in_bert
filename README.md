@@ -6,11 +6,13 @@ This repository contains the code for the CONLL 2019 paper [**"Investigating Ent
 
 The content of this page covers the following topics: 
 
-1. [Preparation and Installation](#preparation-and-installation)
-2. [Preprocessing of Wikipedia and the AIDA-CONLL entity linking benchmark into a sequence tagging format](#prepare)
-3. [Finetuning/Training a BERT-Entity model on Wikipedia](#training)
-4. [Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark](#training)
-5. [Using a BERT-Entity model in a downstream task](#evalation-on-downstream-tasks)
+1. [Quick start](#quick-start)
+2. [Preparation and Installation](#preparation-and-installation)
+3. [Preprocessing of Wikipedia and the AIDA-CONLL entity linking benchmark into a sequence tagging format](#prepare)
+4. [Finetuning/Training a BERT-Entity model on Wikipedia](#training)
+5. [Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark](#training)
+6. [Using a BERT-Entity model in a downstream task](#evalation-on-downstream-tasks)
+7. [Issues](#issues)
 
 ## Quick start
 
@@ -393,3 +395,12 @@ In the config folder you will find the following configurations:
 ## Evalation on downstream tasks
 
 See files in `downstream_tasks`. Documentation is a TODO.
+
+## Issues and Improvements
+
+- Training is slow because of accumulating the most probable entities per batch. This could be sped up with adaptive softmax like change, i.e. first decide if token is an entity. 
+- Resuming currently only works on the epoch level. To enable resuming in between epochs, the shuffled indexes for an epoch have to be stored in the LOGDIR or checkpoint.
+- When AIDA CoNLL entities are missing from the top k popular entities and are added to the vocabulary, should make sure that confounders with high BPE token overlap are added as well. 
+- Configuration to create integerized Wiki training data is hard to grasp, i.e. which training instances are included depends on `create_integerized_training_max_entity_per_shard_count`, `create_integerized_training_num_workers` and `num_most_freq_entities`. Their influence is difficult to decribe, should be more straightforward.
+- It would be much better to produce an annotated document and evaluate it with https://github.com/wikilinks/neleval . neleval is widely used and has all the necessary metrics implemented. 
+- Investigate shrinking the model size and prediction speed. 
