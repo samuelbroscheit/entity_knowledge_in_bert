@@ -1,0 +1,568 @@
+Index: fairseq/models/transformer.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- fairseq/models/transformer.py	(revision ec6f8ef99a8c6942133e01a610def197e1d6d9dd)
++++ fairseq/models/transformer.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -14,6 +14,8 @@
+ from fairseq import options
+ from fairseq import utils
+ 
++from pytorch_pretrained_bert import BertModel
++
+ from fairseq.modules import (
+     AdaptiveInput, AdaptiveSoftmax, CharacterTokenEmbedder, LearnedPositionalEmbedding, MultiheadAttention,
+     SinusoidalPositionalEmbedding
+@@ -56,6 +58,8 @@
+                             help='dropout probability for attention weights')
+         parser.add_argument('--relu-dropout', type=float, metavar='D',
+                             help='dropout probability after ReLU in FFN')
++        parser.add_argument('--use-bert-encoder', type=str, metavar='STR',
++                            help='use bert encoder')
+         parser.add_argument('--encoder-embed-path', type=str, metavar='STR',
+                             help='path to pre-trained encoder embedding')
+         parser.add_argument('--encoder-embed-dim', type=int, metavar='N',
+@@ -143,8 +147,10 @@
+             decoder_embed_tokens = build_embedding(
+                 tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
+             )
+-
+-        encoder = TransformerEncoder(args, src_dict, encoder_embed_tokens)
++        if args.use_bert_encoder:
++            encoder = BertTransformerEncoder(args)
++        else:
++            encoder = TransformerEncoder(args, src_dict, encoder_embed_tokens)
+         decoder = TransformerDecoder(args, tgt_dict, decoder_embed_tokens)
+         return TransformerModel(encoder, decoder)
+ 
+@@ -287,7 +293,7 @@
+ 
+         self.layers = nn.ModuleList([])
+         self.layers.extend([
+-            TransformerEncoderLayer(args)
++            TransformerEncoder(args)
+             for i in range(args.encoder_layers)
+         ])
+         self.register_buffer('version', torch.Tensor([2]))
+@@ -377,6 +383,100 @@
+         return state_dict
+ 
+ 
++class BertTransformerEncoder(FairseqEncoder):
++    """
++    Transformer encoder consisting of *args.encoder_layers* layers. Each layer
++    is a :class:`TransformerEncoderLayer`.
++
++    Args:
++        args (argparse.Namespace): parsed command-line arguments
++        dictionary (~fairseq.data.Dictionary): encoding dictionary
++        embed_tokens (torch.nn.Embedding): input embedding
++        left_pad (bool, optional): whether the input is left-padded
++            (default: True).
++    """
++
++    def __init__(self, args):
++    # def __init__(self, args, dictionary, embed_tokens, left_pad=True):
++        super().__init__(None)
++        self.bert = BertModel.from_pretrained('bert-base-cased')
++        self.padding_idx = 0
++        self.max_source_positions = args.max_source_positions
++
++    def forward(self, src_tokens, src_lengths):
++        """
++        Args:
++            src_tokens (LongTensor): tokens in the source language of shape
++                `(batch, src_len)`
++            src_lengths (torch.LongTensor): lengths of each source sentence of
++                shape `(batch)`
++
++        Returns:
++            dict:
++                - **encoder_out** (Tensor): the last encoder layer's output of
++                  shape `(src_len, batch, embed_dim)`
++                - **encoder_padding_mask** (ByteTensor): the positions of
++                  padding elements of shape `(batch, src_len)`
++        """
++        # embed tokens and positions
++
++        # B x T x C -> T x B x C
++        # x = x.transpose(0, 1)
++
++        # compute padding mask
++        encoder_padding_mask = src_tokens.eq(self.padding_idx)
++        if not encoder_padding_mask.any():
++            encoder_padding_mask = None
++
++        # encoder layers
++
++        encoded_layers, _ = self.bert(src_tokens)
++        x = encoded_layers[-1]
++
++        return {
++            'encoder_out': x,  # T x B x C
++            'encoder_padding_mask': encoder_padding_mask,  # B x T
++        }
++
++    def reorder_encoder_out(self, encoder_out, new_order):
++        """
++        Reorder encoder output according to *new_order*.
++
++        Args:
++            encoder_out: output from the ``forward()`` method
++            new_order (LongTensor): desired order
++
++        Returns:
++            *encoder_out* rearranged according to *new_order*
++        """
++        if encoder_out['encoder_out'] is not None:
++            encoder_out['encoder_out'] = \
++                encoder_out['encoder_out'].index_select(1, new_order)
++        if encoder_out['encoder_padding_mask'] is not None:
++            encoder_out['encoder_padding_mask'] = \
++                encoder_out['encoder_padding_mask'].index_select(0, new_order)
++        return encoder_out
++
++    def max_positions(self):
++        """Maximum input length supported by the encoder."""
++        return self.max_source_positions
++
++    def upgrade_state_dict_named(self, state_dict, name):
++        raise Exception('upgrade_state_dict_named not implemented')
++        # """Upgrade a (possibly old) state dict for new versions of fairseq."""
++        # if isinstance(self.embed_positions, SinusoidalPositionalEmbedding):
++        #     weights_key = '{}.embed_positions.weights'.format(name)
++        #     if weights_key in state_dict:
++        #         del state_dict[weights_key]
++        #     state_dict['{}.embed_positions._float_tensor'.format(name)] = torch.FloatTensor(1)
++        # version_key = '{}.version'.format(name)
++        # if utils.item(state_dict.get(version_key, torch.Tensor([1]))[0]) < 2:
++        #     # earlier checkpoints did not normalize after the stack of layers
++        #     self.layer_norm = None
++        #     self.normalize = False
++        #     state_dict[version_key] = torch.Tensor([1])
++        # return state_dict
++
+ class TransformerDecoder(FairseqIncrementalDecoder):
+     """
+     Transformer decoder consisting of *args.decoder_layers* layers. Each layer
+@@ -880,6 +980,16 @@
+     base_architecture(args)
+ 
+ 
++@register_model_architecture('transformer', 'bert_transformer_iwslt_en_de')
++def transformer_iwslt_de_en(args):
++    args.encoder_embed_dim = getattr(args, 'decoder_embed_dim', 768)
++    args.use_bert_encoder = getattr(args, 'use_bert_encoder', True)
++    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 768)
++    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 1024)
++    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
++    args.decoder_layers = getattr(args, 'decoder_layers', 6)
++    base_architecture(args)
++
+ @register_model_architecture('transformer', 'transformer_wmt_en_de')
+ def transformer_wmt_en_de(args):
+     base_architecture(args)
+Index: preprocess.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- preprocess.py	(revision ec6f8ef99a8c6942133e01a610def197e1d6d9dd)
++++ preprocess.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -72,7 +72,7 @@
+ 
+     print(args)
+     os.makedirs(args.destdir, exist_ok=True)
+-    target = not args.only_source
++    not_only_source = not args.only_source
+ 
+     def train_path(lang):
+         return "{}{}".format(args.trainpref, ("." + lang) if lang else "")
+@@ -105,7 +105,7 @@
+                 args.trainpref
+             ), "--trainpref must be set if --srcdict is not specified"
+             src_dict = build_dictionary([train_path(args.source_lang)], args.workers)
+-        if target:
++        if not_only_source:
+             if args.tgtdict:
+                 tgt_dict = dictionary.Dictionary.load(args.tgtdict)
+             else:
+@@ -122,7 +122,7 @@
+         padding_factor=args.padding_factor,
+     )
+     src_dict.save(dict_path(args.source_lang))
+-    if target:
++    if not_only_source:
+         if not args.joined_dictionary:
+             tgt_dict.finalize(
+                 threshold=args.thresholdtgt,
+@@ -220,7 +220,7 @@
+                 make_dataset(testpref, outprefix, lang)
+ 
+     make_all(args.source_lang)
+-    if target:
++    if not_only_source:
+         make_all(args.target_lang)
+ 
+     print("| Wrote preprocessed data to {}".format(args.destdir))
+Index: preprocess_4_bert_encoder.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- preprocess_4_bert_encoder.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ preprocess_4_bert_encoder.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -0,0 +1,352 @@
++#!/usr/bin/env python3
++# Copyright (c) 2017-present, Facebook, Inc.
++# All rights reserved.
++#
++# This source code is licensed under the license found in the LICENSE file in
++# the root directory of this source tree. An additional grant of patent rights
++# can be found in the PATENTS file in the same directory.
++"""
++Data pre-processing: build vocabularies and binarize training data.
++"""
++
++import argparse
++from collections import Counter
++from itertools import zip_longest
++import os
++import shutil
++
++from fairseq.data import indexed_dataset, dictionary
++from fairseq.tokenizer import Tokenizer, tokenize_line
++from multiprocessing import Pool
++from pytorch_pretrained_bert import BertModel
++
++from fairseq.utils import import_user_module
++
++
++def get_parser():
++    parser = argparse.ArgumentParser()
++    # fmt: off
++    parser.add_argument("-s", "--source-lang", default=None, metavar="SRC",
++                        help="source language")
++    parser.add_argument("-t", "--target-lang", default=None, metavar="TARGET",
++                        help="target language")
++    parser.add_argument("--trainpref", metavar="FP", default=None,
++                        help="train file prefix")
++    parser.add_argument("--validpref", metavar="FP", default=None,
++                        help="comma separated, valid file prefixes")
++    parser.add_argument("--testpref", metavar="FP", default=None,
++                        help="comma separated, test file prefixes")
++    parser.add_argument("--destdir", metavar="DIR", default="data-bin",
++                        help="destination dir")
++    parser.add_argument("--thresholdtgt", metavar="N", default=0, type=int,
++                        help="map words appearing less than threshold times to unknown")
++    parser.add_argument("--thresholdsrc", metavar="N", default=0, type=int,
++                        help="map words appearing less than threshold times to unknown")
++    parser.add_argument("--tgtdict", metavar="FP",
++                        help="reuse given target dictionary")
++    parser.add_argument("--srcdict", metavar="FP",
++                        help="reuse given source dictionary")
++    parser.add_argument("--nwordstgt", metavar="N", default=-1, type=int,
++                        help="number of target words to retain")
++    parser.add_argument("--nwordssrc", metavar="N", default=-1, type=int,
++                        help="number of source words to retain")
++    parser.add_argument("--alignfile", metavar="ALIGN", default=None,
++                        help="an alignment file (optional)")
++    parser.add_argument("--output-format", metavar="FORMAT", default="binary",
++                        choices=["binary", "raw"],
++                        help="output format (optional)")
++    parser.add_argument("--joined-dictionary", action="store_true",
++                        help="Generate joined dictionary")
++    parser.add_argument("--only-source", action="store_true",
++                        help="Only process the source language")
++    parser.add_argument("--padding-factor", metavar="N", default=8, type=int,
++                        help="Pad dictionary size to be multiple of N")
++    parser.add_argument("--workers", metavar="N", default=1, type=int,
++                        help="number of parallel workers")
++    # fmt: on
++    return parser
++
++
++def main(args):
++    import_user_module(args)
++
++    print(args)
++    os.makedirs(args.destdir, exist_ok=True)
++    not_only_source = not args.only_source
++
++    def train_path(lang):
++        return "{}{}".format(args.trainpref, ("." + lang) if lang else "")
++
++    def file_name(prefix, lang):
++        fname = prefix
++        if lang is not None:
++            fname += ".{lang}".format(lang=lang)
++        return fname
++
++    def dest_path(prefix, lang):
++        return os.path.join(args.destdir, file_name(prefix, lang))
++
++    def dict_path(lang):
++        return dest_path("dict", lang) + ".txt"
++
++    if args.joined_dictionary:
++        # assert not args.srcdict, "cannot combine --srcdict and --joined-dictionary"
++        # assert not args.tgtdict, "cannot combine --tgtdict and --joined-dictionary"
++        # src_dict = build_dictionary(
++        #     {train_path(lang) for lang in [args.source_lang, args.target_lang]},
++        #     args.workers,
++        # )
++        # tgt_dict = src_dict
++        raise Exception('joined_dictionary not implemented')
++    else:
++        if not_only_source:
++            if args.tgtdict:
++                tgt_dict = dictionary.Dictionary.load(args.tgtdict)
++            else:
++                assert (
++                    args.trainpref
++                ), "--trainpref must be set if --tgtdict is not specified"
++                tgt_dict = build_dictionary(
++                    [train_path(args.target_lang)], args.workers
++                )
++
++    from pytorch_pretrained_bert import BertTokenizer
++    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
++
++    def save (f):
++        if isinstance(f, str):
++            os.makedirs(os.path.dirname(f), exist_ok=True)
++            with open(f, 'w', encoding='utf-8') as fd:
++                return save(fd)
++        for symbol, index in tokenizer.vocab.items():
++            print('{} {}'.format(symbol, len(tokenizer.vocab)-index), file=f)
++
++    save(dict_path(args.source_lang))
++
++    if not_only_source:
++        if not args.joined_dictionary:
++            tgt_dict.finalize(
++                threshold=args.thresholdtgt,
++                nwords=args.nwordstgt,
++                padding_factor=args.padding_factor,
++            )
++        tgt_dict.save(dict_path(args.target_lang))
++
++    def make_binary_dataset(input_prefix, output_prefix, lang, num_workers):
++        dict = dictionary.Dictionary.load(dict_path(lang))
++        print("| [{}] Dictionary: {} types".format(lang, len(dict) - 1))
++        n_seq_tok = [0, 0]
++        replaced = Counter()
++
++        def merge_result(worker_result):
++            replaced.update(worker_result["replaced"])
++            n_seq_tok[0] += worker_result["nseq"]
++            n_seq_tok[1] += worker_result["ntok"]
++
++        input_file = "{}{}".format(
++            input_prefix, ("." + lang) if lang is not None else ""
++        )
++        offsets = Tokenizer.find_offsets(input_file, num_workers)
++        pool = None
++        if num_workers > 1:
++            pool = Pool(processes=num_workers - 1)
++            for worker_id in range(1, num_workers):
++                prefix = "{}{}".format(output_prefix, worker_id)
++                pool.apply_async(
++                    binarize,
++                    (
++                        args,
++                        input_file,
++                        dict,
++                        prefix,
++                        lang,
++                        offsets[worker_id],
++                        offsets[worker_id + 1],
++                    ),
++                    callback=merge_result,
++                )
++            pool.close()
++
++        ds = indexed_dataset.IndexedDatasetBuilder(
++            dataset_dest_file(args, output_prefix, lang, "bin")
++        )
++        merge_result(
++            Tokenizer.binarize(
++                input_file, dict, lambda t: ds.add_item(t), offset=0, end=offsets[1]
++            )
++        )
++        if num_workers > 1:
++            pool.join()
++            for worker_id in range(1, num_workers):
++                prefix = "{}{}".format(output_prefix, worker_id)
++                temp_file_path = dataset_dest_prefix(args, prefix, lang)
++                ds.merge_file_(temp_file_path)
++                os.remove(indexed_dataset.data_file_path(temp_file_path))
++                os.remove(indexed_dataset.index_file_path(temp_file_path))
++
++        ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
++
++        print(
++            "| [{}] {}: {} sents, {} tokens, {:.3}% replaced by {}".format(
++                lang,
++                input_file,
++                n_seq_tok[0],
++                n_seq_tok[1],
++                100 * sum(replaced.values()) / n_seq_tok[1],
++                dict.unk_word,
++            )
++        )
++
++    def make_dataset(input_prefix, output_prefix, lang, num_workers=1):
++        if args.output_format == "binary":
++            make_binary_dataset(input_prefix, output_prefix, lang, num_workers)
++        elif args.output_format == "raw":
++            # Copy original text file to destination folder
++            output_text_file = dest_path(
++                output_prefix + ".{}-{}".format(args.source_lang, args.target_lang),
++                lang,
++            )
++            shutil.copyfile(file_name(input_prefix, lang), output_text_file)
++
++    def make_all(lang):
++        if args.trainpref:
++            make_dataset(args.trainpref, "train", lang, num_workers=args.workers)
++        if args.validpref:
++            for k, validpref in enumerate(args.validpref.split(",")):
++                outprefix = "valid{}".format(k) if k > 0 else "valid"
++                make_dataset(validpref, outprefix, lang)
++        if args.testpref:
++            for k, testpref in enumerate(args.testpref.split(",")):
++                outprefix = "test{}".format(k) if k > 0 else "test"
++                make_dataset(testpref, outprefix, lang)
++
++    make_all(args.source_lang)
++    if not_only_source:
++        make_all(args.target_lang)
++
++    print("| Wrote preprocessed data to {}".format(args.destdir))
++
++    if args.alignfile:
++        assert args.trainpref, "--trainpref must be set if --alignfile is specified"
++        src_file_name = train_path(args.source_lang)
++        tgt_file_name = train_path(args.target_lang)
++        src_dict = dictionary.Dictionary.load(dict_path(args.source_lang))
++        tgt_dict = dictionary.Dictionary.load(dict_path(args.target_lang))
++        freq_map = {}
++        with open(args.alignfile, "r", encoding='utf-8') as align_file:
++            with open(src_file_name, "r", encoding='utf-8') as src_file:
++                with open(tgt_file_name, "r", encoding='utf-8') as tgt_file:
++                    for a, s, t in zip_longest(align_file, src_file, tgt_file):
++                        si = Tokenizer.tokenize(s, src_dict, add_if_not_exist=False)
++                        ti = Tokenizer.tokenize(t, tgt_dict, add_if_not_exist=False)
++                        ai = list(map(lambda x: tuple(x.split("-")), a.split()))
++                        for sai, tai in ai:
++                            srcidx = si[int(sai)]
++                            tgtidx = ti[int(tai)]
++                            if srcidx != src_dict.unk() and tgtidx != tgt_dict.unk():
++                                assert srcidx != src_dict.pad()
++                                assert srcidx != src_dict.eos()
++                                assert tgtidx != tgt_dict.pad()
++                                assert tgtidx != tgt_dict.eos()
++
++                                if srcidx not in freq_map:
++                                    freq_map[srcidx] = {}
++                                if tgtidx not in freq_map[srcidx]:
++                                    freq_map[srcidx][tgtidx] = 1
++                                else:
++                                    freq_map[srcidx][tgtidx] += 1
++
++        align_dict = {}
++        for srcidx in freq_map.keys():
++            align_dict[srcidx] = max(freq_map[srcidx], key=freq_map[srcidx].get)
++
++        with open(
++            os.path.join(
++                args.destdir,
++                "alignment.{}-{}.txt".format(args.source_lang, args.target_lang),
++            ),
++            "w", encoding='utf-8'
++        ) as f:
++            for k, v in align_dict.items():
++                print("{} {}".format(src_dict[k], tgt_dict[v]), file=f)
++
++
++def build_and_save_dictionary(
++    train_path, output_path, num_workers, freq_threshold, max_words, dict_cls=dictionary.Dictionary,
++):
++    dict = build_dictionary([train_path], num_workers, dict_cls)
++    dict.finalize(threshold=freq_threshold, nwords=max_words)
++    dict_path = os.path.join(output_path, "dict.txt")
++    dict.save(dict_path)
++    return dict_path
++
++
++def build_dictionary(
++    filenames,
++    workers,
++    dict_cls=dictionary.Dictionary,
++):
++    d = dict_cls()
++    for filename in filenames:
++        Tokenizer.add_file_to_dictionary(filename, d, tokenize_line, workers)
++    return d
++
++
++def binarize(args, filename, dict, output_prefix, lang, offset, end):
++    ds = indexed_dataset.IndexedDatasetBuilder(
++        dataset_dest_file(args, output_prefix, lang, "bin")
++    )
++
++    def consumer(tensor):
++        ds.add_item(tensor)
++
++    res = Tokenizer.binarize(filename, dict, consumer, offset=offset, end=end)
++    ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
++    return res
++
++
++def binarize_with_load(
++    args,
++    filename,
++    dict_path,
++    output_prefix,
++    lang,
++    offset,
++    end,
++    dict_cls=dictionary.Dictionary,
++):
++    dict = dict_cls.load(dict_path)
++    binarize(args, filename, dict, output_prefix, lang, offset, end)
++    return dataset_dest_prefix(args, output_prefix, lang)
++
++
++def dataset_dest_prefix(args, output_prefix, lang):
++    base = "{}/{}".format(args.destdir, output_prefix)
++    lang_part = (
++        ".{}-{}.{}".format(args.source_lang, args.target_lang, lang) if lang is not None else ""
++    )
++    return "{}{}".format(base, lang_part)
++
++
++def dataset_dest_file(args, output_prefix, lang, extension):
++    base = dataset_dest_prefix(args, output_prefix, lang)
++    return "{}.{}".format(base, extension)
++
++
++def get_offsets(input_file, num_workers):
++    return Tokenizer.find_offsets(input_file, num_workers)
++
++
++def merge_files(files, outpath):
++    ds = indexed_dataset.IndexedDatasetBuilder("{}.bin".format(outpath))
++    for file in files:
++        ds.merge_file_(file)
++        os.remove(indexed_dataset.data_file_path(file))
++        os.remove(indexed_dataset.index_file_path(file))
++    ds.finalize("{}.idx".format(outpath))
++
++
++if __name__ == "__main__":
++    parser = get_parser()
++    args = parser.parse_args()
++    main(args)

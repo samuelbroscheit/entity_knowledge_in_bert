@@ -1,0 +1,1114 @@
+Index: examples/translation/README.md
+===================================================================
+--- examples/translation/README.md	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ examples/translation/README.md	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -1,165 +0,0 @@
+-# Neural Machine Translation
+-
+-## Pre-trained models
+-
+-Description | Dataset | Model | Test set(s)
+----|---|---|---
+-Convolutional <br> ([Gehring et al., 2017](https://arxiv.org/abs/1705.03122)) | [WMT14 English-French](http://statmt.org/wmt14/translation-task.html#Download) | [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/models/wmt14.v2.en-fr.fconv-py.tar.bz2) | newstest2014: <br> [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/data/wmt14.v2.en-fr.newstest2014.tar.bz2) <br> newstest2012/2013: <br> [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/data/wmt14.v2.en-fr.ntst1213.tar.bz2)
+-Convolutional <br> ([Gehring et al., 2017](https://arxiv.org/abs/1705.03122)) | [WMT14 English-German](http://statmt.org/wmt14/translation-task.html#Download) | [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/models/wmt14.en-de.fconv-py.tar.bz2) | newstest2014: <br> [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/data/wmt14.en-de.newstest2014.tar.bz2)
+-Convolutional <br> ([Gehring et al., 2017](https://arxiv.org/abs/1705.03122)) | [WMT17 English-German](http://statmt.org/wmt17/translation-task.html#Download) | [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/models/wmt17.v2.en-de.fconv-py.tar.bz2) | newstest2014: <br> [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/data/wmt17.v2.en-de.newstest2014.tar.bz2)
+-Transformer <br> ([Ott et al., 2018](https://arxiv.org/abs/1806.00187)) | [WMT14 English-French](http://statmt.org/wmt14/translation-task.html#Download) | [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/models/wmt14.en-fr.joined-dict.transformer.tar.bz2) | newstest2014 (shared vocab): <br> [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/data/wmt14.en-fr.joined-dict.newstest2014.tar.bz2)
+-Transformer <br> ([Ott et al., 2018](https://arxiv.org/abs/1806.00187)) | [WMT16 English-German](https://drive.google.com/uc?export=download&id=0B_bZck-ksdkpM25jRUN2X2UxMm8) | [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/models/wmt16.en-de.joined-dict.transformer.tar.bz2) | newstest2014 (shared vocab): <br> [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/data/wmt16.en-de.joined-dict.newstest2014.tar.bz2)
+-Transformer <br> ([Edunov et al., 2018](https://arxiv.org/abs/1808.09381); WMT'18 winner) | [WMT'18 English-German](http://www.statmt.org/wmt18/translation-task.html) | [download (.tar.bz2)](https://dl.fbaipublicfiles.com/fairseq/models/wmt18.en-de.ensemble.tar.bz2) | See NOTE in the archive
+-
+-## Example usage
+-
+-Generation with the binarized test sets can be run in batch mode as follows, e.g. for WMT 2014 English-French on a GTX-1080ti:
+-```
+-$ mkdir -p data-bin
+-$ curl https://dl.fbaipublicfiles.com/fairseq/models/wmt14.v2.en-fr.fconv-py.tar.bz2 | tar xvjf - -C data-bin
+-$ curl https://dl.fbaipublicfiles.com/fairseq/data/wmt14.v2.en-fr.newstest2014.tar.bz2 | tar xvjf - -C data-bin
+-$ python generate.py data-bin/wmt14.en-fr.newstest2014  \
+-  --path data-bin/wmt14.en-fr.fconv-py/model.pt \
+-  --beam 5 --batch-size 128 --remove-bpe | tee /tmp/gen.out
+-...
+-| Translated 3003 sentences (96311 tokens) in 166.0s (580.04 tokens/s)
+-| Generate test with beam=5: BLEU4 = 40.83, 67.5/46.9/34.4/25.5 (BP=1.000, ratio=1.006, syslen=83262, reflen=82787)
+-
+-# Scoring with score.py:
+-$ grep ^H /tmp/gen.out | cut -f3- > /tmp/gen.out.sys
+-$ grep ^T /tmp/gen.out | cut -f2- > /tmp/gen.out.ref
+-$ python score.py --sys /tmp/gen.out.sys --ref /tmp/gen.out.ref
+-BLEU4 = 40.83, 67.5/46.9/34.4/25.5 (BP=1.000, ratio=1.006, syslen=83262, reflen=82787)
+-```
+-
+-## Preprocessing
+-
+-These scripts provide an example of pre-processing data for the NMT task.
+-
+-### prepare-iwslt14.sh
+-
+-Provides an example of pre-processing for IWSLT'14 German to English translation task: ["Report on the 11th IWSLT evaluation campaign" by Cettolo et al.](http://workshop2014.iwslt.org/downloads/proceeding.pdf)
+-
+-Example usage:
+-```
+-$ cd examples/translation/
+-$ bash prepare-iwslt14.sh
+-$ cd ../..
+-
+-# Binarize the dataset:
+-$ TEXT=examples/translation/iwslt14.tokenized.de-en
+-$ python preprocess.py --source-lang de --target-lang en \
+-  --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
+-  --destdir data-bin/iwslt14.tokenized.de-en
+-
+-# Train the model (better for a single GPU setup):
+-$ mkdir -p checkpoints/fconv
+-$ CUDA_VISIBLE_DEVICES=0 python train.py data-bin/iwslt14.tokenized.de-en \
+-  --lr 0.25 --clip-norm 0.1 --dropout 0.2 --max-tokens 4000 \
+-  --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+-  --lr-scheduler fixed --force-anneal 200 \
+-  --arch fconv_iwslt_de_en --save-dir checkpoints/fconv
+-
+-# Generate:
+-$ python generate.py data-bin/iwslt14.tokenized.de-en \
+-  --path checkpoints/fconv/checkpoint_best.pt \
+-  --batch-size 128 --beam 5 --remove-bpe
+-
+-```
+-
+-To train transformer model on IWSLT'14 German to English:
+-```
+-# Preparation steps are the same as for fconv model.
+-
+-# Train the model (better for a single GPU setup):
+-$ mkdir -p checkpoints/transformer
+-$ CUDA_VISIBLE_DEVICES=0 python train.py data-bin/iwslt14.tokenized.de-en \
+-  -a transformer_iwslt_de_en --optimizer adam --lr 0.0005 -s de -t en \
+-  --label-smoothing 0.1 --dropout 0.3 --max-tokens 4000 \
+-  --min-lr '1e-09' --lr-scheduler inverse_sqrt --weight-decay 0.0001 \
+-  --criterion label_smoothed_cross_entropy --max-update 50000 \
+-  --warmup-updates 4000 --warmup-init-lr '1e-07' \
+-  --adam-betas '(0.9, 0.98)' --save-dir checkpoints/transformer
+-
+-# Average 10 latest checkpoints:
+-$ python scripts/average_checkpoints.py --inputs checkpoints/transformer \
+-   --num-epoch-checkpoints 10 --output checkpoints/transformer/model.pt
+-
+-# Generate:
+-$ python generate.py data-bin/iwslt14.tokenized.de-en \
+-  --path checkpoints/transformer/model.pt \
+-  --batch-size 128 --beam 5 --remove-bpe
+-
+-```
+-
+-
+-### prepare-wmt14en2de.sh
+-
+-The WMT English to German dataset can be preprocessed using the `prepare-wmt14en2de.sh` script.
+-By default it will produce a dataset that was modeled after ["Attention Is All You Need" (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762), but with news-commentary-v12 data from WMT'17.
+-
+-To use only data available in WMT'14 or to replicate results obtained in the original ["Convolutional Sequence to Sequence Learning" (Gehring et al., 2017)](https://arxiv.org/abs/1705.03122) paper, please use the `--icml17` option.
+-
+-```
+-$ bash prepare-wmt14en2de.sh --icml17
+-```
+-
+-Example usage:
+-
+-```
+-$ cd examples/translation/
+-$ bash prepare-wmt14en2de.sh
+-$ cd ../..
+-
+-# Binarize the dataset:
+-$ TEXT=examples/translation/wmt14_en_de
+-$ python preprocess.py --source-lang en --target-lang de \
+-  --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
+-  --destdir data-bin/wmt14_en_de --thresholdtgt 0 --thresholdsrc 0
+-
+-# Train the model:
+-# If it runs out of memory, try to set --max-tokens 1500 instead
+-$ mkdir -p checkpoints/fconv_wmt_en_de
+-$ python train.py data-bin/wmt14_en_de \
+-  --lr 0.5 --clip-norm 0.1 --dropout 0.2 --max-tokens 4000 \
+-  --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+-  --lr-scheduler fixed --force-anneal 50 \
+-  --arch fconv_wmt_en_de --save-dir checkpoints/fconv_wmt_en_de
+-
+-# Generate:
+-$ python generate.py data-bin/wmt14_en_de \
+-  --path checkpoints/fconv_wmt_en_de/checkpoint_best.pt --beam 5 --remove-bpe
+-
+-```
+-
+-### prepare-wmt14en2fr.sh
+-
+-Provides an example of pre-processing for the WMT'14 English to French translation task.
+-
+-Example usage:
+-
+-```
+-$ cd examples/translation/
+-$ bash prepare-wmt14en2fr.sh
+-$ cd ../..
+-
+-# Binarize the dataset:
+-$ TEXT=examples/translation/wmt14_en_fr
+-$ python preprocess.py --source-lang en --target-lang fr \
+-  --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
+-  --destdir data-bin/wmt14_en_fr --thresholdtgt 0 --thresholdsrc 0
+-
+-# Train the model:
+-# If it runs out of memory, try to set --max-tokens 1000 instead
+-$ mkdir -p checkpoints/fconv_wmt_en_fr
+-$ python train.py data-bin/wmt14_en_fr \
+-  --lr 0.5 --clip-norm 0.1 --dropout 0.1 --max-tokens 3000 \
+-  --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+-  --lr-scheduler fixed --force-anneal 50 \
+-  --arch fconv_wmt_en_fr --save-dir checkpoints/fconv_wmt_en_fr
+-
+-# Generate:
+-$ python generate.py data-bin/fconv_wmt_en_fr \
+-  --path checkpoints/fconv_wmt_en_fr/checkpoint_best.pt --beam 5 --remove-bpe
+-
+-```
+Index: examples/translation/prepare-iwslt14.sh
+===================================================================
+--- examples/translation/prepare-iwslt14.sh	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ examples/translation/prepare-iwslt14.sh	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -1,115 +0,0 @@
+-#!/usr/bin/env bash
+-#
+-# Adapted from https://github.com/facebookresearch/MIXER/blob/master/prepareData.sh
+-
+-echo 'Cloning Moses github repository (for tokenization scripts)...'
+-git clone https://github.com/moses-smt/mosesdecoder.git
+-
+-echo 'Cloning Subword NMT repository (for BPE pre-processing)...'
+-git clone https://github.com/rsennrich/subword-nmt.git
+-
+-SCRIPTS=mosesdecoder/scripts
+-TOKENIZER=$SCRIPTS/tokenizer/tokenizer.perl
+-LC=$SCRIPTS/tokenizer/lowercase.perl
+-CLEAN=$SCRIPTS/training/clean-corpus-n.perl
+-BPEROOT=subword-nmt
+-BPE_TOKENS=10000
+-
+-URL="https://wit3.fbk.eu/archive/2014-01/texts/de/en/de-en.tgz"
+-GZ=de-en.tgz
+-
+-if [ ! -d "$SCRIPTS" ]; then
+-    echo "Please set SCRIPTS variable correctly to point to Moses scripts."
+-    exit
+-fi
+-
+-src=de
+-tgt=en
+-lang=de-en
+-prep=iwslt14.tokenized.de-en
+-tmp=$prep/tmp
+-orig=orig
+-
+-mkdir -p $orig $tmp $prep
+-
+-echo "Downloading data from ${URL}..."
+-cd $orig
+-wget "$URL"
+-
+-if [ -f $GZ ]; then
+-    echo "Data successfully downloaded."
+-else
+-    echo "Data not successfully downloaded."
+-    exit
+-fi
+-
+-tar zxvf $GZ
+-cd ..
+-
+-echo "pre-processing train data..."
+-for l in $src $tgt; do
+-    f=train.tags.$lang.$l
+-    tok=train.tags.$lang.tok.$l
+-
+-    cat $orig/$lang/$f | \
+-    grep -v '<url>' | \
+-    grep -v '<talkid>' | \
+-    grep -v '<keywords>' | \
+-    sed -e 's/<title>//g' | \
+-    sed -e 's/<\/title>//g' | \
+-    sed -e 's/<description>//g' | \
+-    sed -e 's/<\/description>//g' | \
+-    perl $TOKENIZER -threads 8 -l $l > $tmp/$tok
+-    echo ""
+-done
+-perl $CLEAN -ratio 1.5 $tmp/train.tags.$lang.tok $src $tgt $tmp/train.tags.$lang.clean 1 175
+-for l in $src $tgt; do
+-    perl $LC < $tmp/train.tags.$lang.clean.$l > $tmp/train.tags.$lang.$l
+-done
+-
+-echo "pre-processing valid/test data..."
+-for l in $src $tgt; do
+-    for o in `ls $orig/$lang/IWSLT14.TED*.$l.xml`; do
+-    fname=${o##*/}
+-    f=$tmp/${fname%.*}
+-    echo $o $f
+-    grep '<seg id' $o | \
+-        sed -e 's/<seg id="[0-9]*">\s*//g' | \
+-        sed -e 's/\s*<\/seg>\s*//g' | \
+-        sed -e "s/\’/\'/g" | \
+-    perl $TOKENIZER -threads 8 -l $l | \
+-    perl $LC > $f
+-    echo ""
+-    done
+-done
+-
+-
+-echo "creating train, valid, test..."
+-for l in $src $tgt; do
+-    awk '{if (NR%23 == 0)  print $0; }' $tmp/train.tags.de-en.$l > $tmp/valid.$l
+-    awk '{if (NR%23 != 0)  print $0; }' $tmp/train.tags.de-en.$l > $tmp/train.$l
+-
+-    cat $tmp/IWSLT14.TED.dev2010.de-en.$l \
+-        $tmp/IWSLT14.TEDX.dev2012.de-en.$l \
+-        $tmp/IWSLT14.TED.tst2010.de-en.$l \
+-        $tmp/IWSLT14.TED.tst2011.de-en.$l \
+-        $tmp/IWSLT14.TED.tst2012.de-en.$l \
+-        > $tmp/test.$l
+-done
+-
+-TRAIN=$tmp/train.en-de
+-BPE_CODE=$prep/code
+-rm -f $TRAIN
+-for l in $src $tgt; do
+-    cat $tmp/train.$l >> $TRAIN
+-done
+-
+-echo "learn_bpe.py on ${TRAIN}..."
+-python $BPEROOT/learn_bpe.py -s $BPE_TOKENS < $TRAIN > $BPE_CODE
+-
+-for L in $src $tgt; do
+-    for f in train.$L valid.$L test.$L; do
+-        echo "apply_bpe.py to ${f}..."
+-        python $BPEROOT/apply_bpe.py -c $BPE_CODE < $tmp/$f > $prep/$f
+-    done
+-done
+Index: examples/translation/prepare-wmt14en2de.sh
+===================================================================
+--- examples/translation/prepare-wmt14en2de.sh	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ examples/translation/prepare-wmt14en2de.sh	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -1,139 +0,0 @@
+-#!/bin/bash
+-# Adapted from https://github.com/facebookresearch/MIXER/blob/master/prepareData.sh
+-
+-echo 'Cloning Moses github repository (for tokenization scripts)...'
+-git clone https://github.com/moses-smt/mosesdecoder.git
+-
+-echo 'Cloning Subword NMT repository (for BPE pre-processing)...'
+-git clone https://github.com/rsennrich/subword-nmt.git
+-
+-SCRIPTS=mosesdecoder/scripts
+-TOKENIZER=$SCRIPTS/tokenizer/tokenizer.perl
+-CLEAN=$SCRIPTS/training/clean-corpus-n.perl
+-NORM_PUNC=$SCRIPTS/tokenizer/normalize-punctuation.perl
+-REM_NON_PRINT_CHAR=$SCRIPTS/tokenizer/remove-non-printing-char.perl
+-BPEROOT=subword-nmt
+-BPE_TOKENS=40000
+-
+-URLS=(
+-    "http://statmt.org/wmt13/training-parallel-europarl-v7.tgz"
+-    "http://statmt.org/wmt13/training-parallel-commoncrawl.tgz"
+-    "http://data.statmt.org/wmt17/translation-task/training-parallel-nc-v12.tgz"
+-    "http://data.statmt.org/wmt17/translation-task/dev.tgz"
+-    "http://statmt.org/wmt14/test-full.tgz"
+-)
+-FILES=(
+-    "training-parallel-europarl-v7.tgz"
+-    "training-parallel-commoncrawl.tgz"
+-    "training-parallel-nc-v12.tgz"
+-    "dev.tgz"
+-    "test-full.tgz"
+-)
+-CORPORA=(
+-    "training/europarl-v7.de-en"
+-    "commoncrawl.de-en"
+-    "training/news-commentary-v12.de-en"
+-)
+-
+-# This will make the dataset compatible to the one used in "Convolutional Sequence to Sequence Learning"
+-# https://arxiv.org/abs/1705.03122
+-if [ "$1" == "--icml17" ]; then
+-    URLS[2]="http://statmt.org/wmt14/training-parallel-nc-v9.tgz"
+-    FILES[2]="training-parallel-nc-v9.tgz"
+-    CORPORA[2]="training/news-commentary-v9.de-en"
+-fi
+-
+-if [ ! -d "$SCRIPTS" ]; then
+-    echo "Please set SCRIPTS variable correctly to point to Moses scripts."
+-    exit
+-fi
+-
+-src=en
+-tgt=de
+-lang=en-de
+-prep=wmt14_en_de
+-tmp=$prep/tmp
+-orig=orig
+-dev=dev/newstest2013
+-
+-mkdir -p $orig $tmp $prep
+-
+-cd $orig
+-
+-for ((i=0;i<${#URLS[@]};++i)); do
+-    file=${FILES[i]}
+-    if [ -f $file ]; then
+-        echo "$file already exists, skipping download"
+-    else
+-        url=${URLS[i]}
+-        wget "$url"
+-        if [ -f $file ]; then
+-            echo "$url successfully downloaded."
+-        else
+-            echo "$url not successfully downloaded."
+-            exit -1
+-        fi
+-        if [ ${file: -4} == ".tgz" ]; then
+-            tar zxvf $file
+-        elif [ ${file: -4} == ".tar" ]; then
+-            tar xvf $file
+-        fi
+-    fi
+-done
+-cd ..
+-
+-echo "pre-processing train data..."
+-for l in $src $tgt; do
+-    rm $tmp/train.tags.$lang.tok.$l
+-    for f in "${CORPORA[@]}"; do
+-        cat $orig/$f.$l | \
+-            perl $NORM_PUNC $l | \
+-            perl $REM_NON_PRINT_CHAR | \
+-            perl $TOKENIZER -threads 8 -a -l $l >> $tmp/train.tags.$lang.tok.$l
+-    done
+-done
+-
+-echo "pre-processing test data..."
+-for l in $src $tgt; do
+-    if [ "$l" == "$src" ]; then
+-        t="src"
+-    else
+-        t="ref"
+-    fi
+-    grep '<seg id' $orig/test-full/newstest2014-deen-$t.$l.sgm | \
+-        sed -e 's/<seg id="[0-9]*">\s*//g' | \
+-        sed -e 's/\s*<\/seg>\s*//g' | \
+-        sed -e "s/\’/\'/g" | \
+-    perl $TOKENIZER -threads 8 -a -l $l > $tmp/test.$l
+-    echo ""
+-done
+-
+-echo "splitting train and valid..."
+-for l in $src $tgt; do
+-    awk '{if (NR%100 == 0)  print $0; }' $tmp/train.tags.$lang.tok.$l > $tmp/valid.$l
+-    awk '{if (NR%100 != 0)  print $0; }' $tmp/train.tags.$lang.tok.$l > $tmp/train.$l
+-done
+-
+-TRAIN=$tmp/train.de-en
+-BPE_CODE=$prep/code
+-rm -f $TRAIN
+-for l in $src $tgt; do
+-    cat $tmp/train.$l >> $TRAIN
+-done
+-
+-echo "learn_bpe.py on ${TRAIN}..."
+-python $BPEROOT/learn_bpe.py -s $BPE_TOKENS < $TRAIN > $BPE_CODE
+-
+-for L in $src $tgt; do
+-    for f in train.$L valid.$L test.$L; do
+-        echo "apply_bpe.py to ${f}..."
+-        python $BPEROOT/apply_bpe.py -c $BPE_CODE < $tmp/$f > $tmp/bpe.$f
+-    done
+-done
+-
+-perl $CLEAN -ratio 1.5 $tmp/bpe.train $src $tgt $prep/train 1 250
+-perl $CLEAN -ratio 1.5 $tmp/bpe.valid $src $tgt $prep/valid 1 250
+-
+-for L in $src $tgt; do
+-    cp $tmp/bpe.test.$L $prep/test.$L
+-done
+Index: examples/translation/prepare-wmt14en2fr.sh
+===================================================================
+--- examples/translation/prepare-wmt14en2fr.sh	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ examples/translation/prepare-wmt14en2fr.sh	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
+@@ -1,136 +0,0 @@
+-#!/bin/bash
+-# Adapted from https://github.com/facebookresearch/MIXER/blob/master/prepareData.sh
+-
+-echo 'Cloning Moses github repository (for tokenization scripts)...'
+-git clone https://github.com/moses-smt/mosesdecoder.git
+-
+-echo 'Cloning Subword NMT repository (for BPE pre-processing)...'
+-git clone https://github.com/rsennrich/subword-nmt.git
+-
+-SCRIPTS=mosesdecoder/scripts
+-TOKENIZER=$SCRIPTS/tokenizer/tokenizer.perl
+-CLEAN=$SCRIPTS/training/clean-corpus-n.perl
+-NORM_PUNC=$SCRIPTS/tokenizer/normalize-punctuation.perl
+-REM_NON_PRINT_CHAR=$SCRIPTS/tokenizer/remove-non-printing-char.perl
+-BPEROOT=subword-nmt
+-BPE_TOKENS=40000
+-
+-URLS=(
+-    "http://statmt.org/wmt13/training-parallel-europarl-v7.tgz"
+-    "http://statmt.org/wmt13/training-parallel-commoncrawl.tgz"
+-    "http://statmt.org/wmt13/training-parallel-un.tgz"
+-    "http://statmt.org/wmt14/training-parallel-nc-v9.tgz"
+-    "http://statmt.org/wmt10/training-giga-fren.tar"
+-    "http://statmt.org/wmt14/test-full.tgz"
+-)
+-FILES=(
+-    "training-parallel-europarl-v7.tgz"
+-    "training-parallel-commoncrawl.tgz"
+-    "training-parallel-un.tgz"
+-    "training-parallel-nc-v9.tgz"
+-    "training-giga-fren.tar"
+-    "test-full.tgz"
+-)
+-CORPORA=(
+-    "training/europarl-v7.fr-en"
+-    "commoncrawl.fr-en"
+-    "un/undoc.2000.fr-en"
+-    "training/news-commentary-v9.fr-en"
+-    "giga-fren.release2.fixed"
+-)
+-
+-if [ ! -d "$SCRIPTS" ]; then
+-    echo "Please set SCRIPTS variable correctly to point to Moses scripts."
+-    exit
+-fi
+-
+-src=en
+-tgt=fr
+-lang=en-fr
+-prep=wmt14_en_fr
+-tmp=$prep/tmp
+-orig=orig
+-
+-mkdir -p $orig $tmp $prep
+-
+-cd $orig
+-
+-for ((i=0;i<${#URLS[@]};++i)); do
+-    file=${FILES[i]}
+-    if [ -f $file ]; then
+-        echo "$file already exists, skipping download"
+-    else
+-        url=${URLS[i]}
+-        wget "$url"
+-        if [ -f $file ]; then
+-            echo "$url successfully downloaded."
+-        else
+-            echo "$url not successfully downloaded."
+-            exit -1
+-        fi
+-        if [ ${file: -4} == ".tgz" ]; then
+-            tar zxvf $file
+-        elif [ ${file: -4} == ".tar" ]; then
+-            tar xvf $file
+-        fi
+-    fi
+-done
+-
+-gunzip giga-fren.release2.fixed.*.gz
+-cd ..
+-
+-echo "pre-processing train data..."
+-for l in $src $tgt; do
+-    rm $tmp/train.tags.$lang.tok.$l
+-    for f in "${CORPORA[@]}"; do
+-        cat $orig/$f.$l | \
+-            perl $NORM_PUNC $l | \
+-            perl $REM_NON_PRINT_CHAR | \
+-            perl $TOKENIZER -threads 8 -a -l $l >> $tmp/train.tags.$lang.tok.$l
+-    done
+-done
+-
+-echo "pre-processing test data..."
+-for l in $src $tgt; do
+-    if [ "$l" == "$src" ]; then
+-        t="src"
+-    else
+-        t="ref"
+-    fi
+-    grep '<seg id' $orig/test-full/newstest2014-fren-$t.$l.sgm | \
+-        sed -e 's/<seg id="[0-9]*">\s*//g' | \
+-        sed -e 's/\s*<\/seg>\s*//g' | \
+-        sed -e "s/\’/\'/g" | \
+-    perl $TOKENIZER -threads 8 -a -l $l > $tmp/test.$l
+-    echo ""
+-done
+-
+-echo "splitting train and valid..."
+-for l in $src $tgt; do
+-    awk '{if (NR%1333 == 0)  print $0; }' $tmp/train.tags.$lang.tok.$l > $tmp/valid.$l
+-    awk '{if (NR%1333 != 0)  print $0; }' $tmp/train.tags.$lang.tok.$l > $tmp/train.$l
+-done
+-
+-TRAIN=$tmp/train.fr-en
+-BPE_CODE=$prep/code
+-rm -f $TRAIN
+-for l in $src $tgt; do
+-    cat $tmp/train.$l >> $TRAIN
+-done
+-
+-echo "learn_bpe.py on ${TRAIN}..."
+-python $BPEROOT/learn_bpe.py -s $BPE_TOKENS < $TRAIN > $BPE_CODE
+-
+-for L in $src $tgt; do
+-    for f in train.$L valid.$L test.$L; do
+-        echo "apply_bpe.py to ${f}..."
+-        python $BPEROOT/apply_bpe.py -c $BPE_CODE < $tmp/$f > $tmp/bpe.$f
+-    done
+-done
+-
+-perl $CLEAN -ratio 1.5 $tmp/bpe.train $src $tgt $prep/train 1 250
+-perl $CLEAN -ratio 1.5 $tmp/bpe.valid $src $tgt $prep/valid 1 250
+-
+-for L in $src $tgt; do
+-    cp $tmp/bpe.test.$L $prep/test.$L
+-done
+Index: fairseq/data/dictionary.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- fairseq/data/dictionary.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ fairseq/data/dictionary.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -13,17 +13,23 @@
+ 
+ class Dictionary(object):
+     """A mapping from symbols to consecutive integers"""
+-    def __init__(self, pad='<pad>', eos='</s>', unk='<unk>'):
++    def __init__(self, pad='<pad>', eos='</s>', unk='<unk>', add_special=True):
+         self.unk_word, self.pad_word, self.eos_word = unk, pad, eos
+         self.symbols = []
+         self.count = []
+         self.indices = {}
+         # dictionary indexing starts at 1 for consistency with Lua
+-        self.add_symbol('<Lua heritage>')
+-        self.pad_index = self.add_symbol(pad)
+-        self.eos_index = self.add_symbol(eos)
+-        self.unk_index = self.add_symbol(unk)
+-        self.nspecial = len(self.symbols)
++        if add_special:
++            self.add_symbol('<Lua heritage>')
++            self.pad_index = self.add_symbol(pad)
++            self.eos_index = self.add_symbol(eos)
++            self.unk_index = self.add_symbol(unk)
++            self.nspecial = len(self.symbols)
++        else:
++            self.pad_index = 1
++            self.eos_index = 2
++            self.unk_index = 3
++            self.nspecial = 4
+ 
+     def __eq__(self, other):
+         return self.indices == other.indices
+@@ -181,12 +187,17 @@
+                                 "rebuild the dataset".format(f))
+ 
+         d = cls()
+-        for line in f.readlines():
++        is_bert_dict = False
++        for i, line in enumerate(f.readlines()):
+             idx = line.rfind(' ')
+             if idx == -1:
+                 raise ValueError("Incorrect dictionary format, expected '<token> <cnt>'")
+             word = line[:idx]
+             count = int(line[idx+1:])
++            if i==0:
++                is_bert_dict = word.lower() == '[pad]'
++                if is_bert_dict:
++                    d = cls(add_special=False)
+             d.indices[word] = len(d.symbols)
+             d.symbols.append(word)
+             d.count.append(count)
+Index: fairseq/models/transformer.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- fairseq/models/transformer.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ fairseq/models/transformer.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -293,7 +293,7 @@
+ 
+         self.layers = nn.ModuleList([])
+         self.layers.extend([
+-            TransformerEncoder(args)
++            TransformerEncoderLayer(args)
+             for i in range(args.encoder_layers)
+         ])
+         self.register_buffer('version', torch.Tensor([2]))
+@@ -383,6 +383,7 @@
+         return state_dict
+ 
+ 
++
+ class BertTransformerEncoder(FairseqEncoder):
+     """
+     Transformer encoder consisting of *args.encoder_layers* layers. Each layer
+@@ -399,9 +400,95 @@
+     def __init__(self, args):
+     # def __init__(self, args, dictionary, embed_tokens, left_pad=True):
+         super().__init__(None)
+-        self.bert = BertModel.from_pretrained('bert-base-cased')
+         self.padding_idx = 0
+         self.max_source_positions = args.max_source_positions
++        self.finetuning = True
++        if args.load_bert_checkpoint:
++            checkpoint = torch.load(args.load_bert_checkpoint, map_location='cpu')
++            if args.uncased:
++                bert = BertModel.from_pretrained('bert-base-uncased')
++            else:
++                bert = BertModel.from_pretrained('bert-base-cased')
++            self.load_state_dict(bert, checkpoint['model'], strict=False)
++            self.bert = bert
++        else:
++            if args.uncased:
++                self.bert = BertModel.from_pretrained('bert-base-uncased')
++            else:
++                self.bert = BertModel.from_pretrained('bert-base-cased')
++
++    @staticmethod
++    def load_state_dict(model: torch.nn.Module, state_dict, strict=True, freeze_param=False, weight_map=None):
++        """Copies parameters and buffers from :attr:`state_dict` into
++        this module and its descendants. If :attr:`strict` is ``True`` then
++        the keys of :attr:`state_dict` must exactly match the keys returned
++        by this module's :func:`state_dict()` function.
++
++        Arguments:
++            state_dict (dict): A dict containing parameters and
++                persistent buffers.
++            strict (bool): Strictly enforce that the keys in :attr:`state_dict`
++                match the keys returned by this module's `:func:`state_dict()`
++                function.
++        """
++
++        # own_state = dict(model.state_dict().items())
++        own_state = model.state_dict(keep_vars=True)
++        loaded_params = list()
++
++        # print(own_state.keys())
++
++        for name, param in state_dict.items():
++            if weight_map is not None and name in weight_map:
++                print('Mapping from {} to {}'.format(name, weight_map[name]))
++                name = weight_map[name]
++            if name in own_state:
++                if isinstance(param, torch.nn.Parameter):
++                    # backwards compatibility for serialized parameters
++                    param_data = param.data
++                else:
++                    param_data = param
++                try:
++                    if isinstance(own_state[name], torch.nn.Parameter):
++                        if param_data.size() != own_state[name].data.size():
++                            if strict:
++                                raise Exception
++                            else:
++                                continue
++                        own_state[name].data.copy_(param_data)
++                    else:
++                        if param_data.size() != own_state[name].size():
++                            if strict:
++                                raise Exception
++                            else:
++                                continue
++                        own_state[name].copy_(param_data)
++                    if type(freeze_param) is list and (name in freeze_param or type(freeze_param[0]) is str and freeze_param[0]=='True'):
++                        own_state[name].requires_grad = False
++                except Exception as e:
++                    print(e)
++                    raise RuntimeError('While copying the parameter named {}, '
++                                       'whose dimensions in the model are {} and '
++                                       'whose dimensions in the checkpoint are {}.'
++                                       .format(name, own_state[name].size(), param.size()))
++                loaded_params.append(name)
++            elif strict:
++                raise KeyError('unexpected key "{}" in state_dict'
++                               .format(name))
++            else:
++                print('{} missing from state_dict'.format(name))
++                pass
++        missing = set(own_state.keys()) - set(state_dict.keys())
++        if strict:
++            if len(missing) > 0:
++                raise KeyError('missing keys in state_dict: "{}"'.format(missing))
++        print('loaded from state_dict: "{}"'.format(loaded_params))
++        # print('missing keys in state_dict: "{}"'.format(missing))
++
++        for mod in model.modules():
++            if hasattr(mod, 'flatten_parameters'):
++                mod.flatten_parameters()
++
+ 
+     def forward(self, src_tokens, src_lengths):
+         """
+@@ -429,12 +516,15 @@
+             encoder_padding_mask = None
+ 
+         # encoder layers
+-
+-        encoded_layers, _ = self.bert(src_tokens)
++        if self.finetuning:
++            encoded_layers, _ = self.bert(src_tokens)
++        else:
++            with torch.no_grad():
++                encoded_layers, _ = self.bert(src_tokens)
+         x = encoded_layers[-1]
+ 
+         return {
+-            'encoder_out': x,  # T x B x C
++            'encoder_out': x.permute(1,0,2),  # T x B x C
+             'encoder_padding_mask': encoder_padding_mask,  # B x T
+         }
+ 
+@@ -462,8 +552,7 @@
+         return self.max_source_positions
+ 
+     def upgrade_state_dict_named(self, state_dict, name):
+-        raise Exception('upgrade_state_dict_named not implemented')
+-        # """Upgrade a (possibly old) state dict for new versions of fairseq."""
++        """Upgrade a (possibly old) state dict for new versions of fairseq."""
+         # if isinstance(self.embed_positions, SinusoidalPositionalEmbedding):
+         #     weights_key = '{}.embed_positions.weights'.format(name)
+         #     if weights_key in state_dict:
+@@ -475,7 +564,7 @@
+         #     self.layer_norm = None
+         #     self.normalize = False
+         #     state_dict[version_key] = torch.Tensor([1])
+-        # return state_dict
++        return state_dict
+ 
+ class TransformerDecoder(FairseqIncrementalDecoder):
+     """
+Index: fairseq/options.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- fairseq/options.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ fairseq/options.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -247,6 +247,8 @@
+                        help='momentum factor')
+     group.add_argument('--weight-decay', '--wd', default=0.0, type=float, metavar='WD',
+                        help='weight decay')
++    group.add_argument('--finetuning', '--ft', default=False,
++                       help='epochs without finetuning BERT model')
+ 
+     # Learning rate schedulers can be found under fairseq/optim/lr_scheduler/
+     group.add_argument('--lr-scheduler', default='reduce_lr_on_plateau',
+@@ -403,5 +405,12 @@
+     group.add_argument('--criterion', default='cross_entropy', metavar='CRIT',
+                        choices=CRITERION_REGISTRY.keys(),
+                        help='Training Criterion')
++
++    group.add_argument('--uncased', default=False, action='store_true',
++                       help='uncased BERT')
++
++    group.add_argument('--load_bert_checkpoint', type=str,
++                       help='path to BERT checkpoint')
++
+     # fmt: on
+     return group
+Index: fairseq/sequence_generator.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- fairseq/sequence_generator.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ fairseq/sequence_generator.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -174,6 +174,12 @@
+             encoder_out = model.encoder(**encoder_input)
+             new_order = torch.arange(bsz).view(-1, 1).repeat(1, beam_size).view(-1)
+             new_order = new_order.to(src_tokens.device).long()
++            # print(bsz)                                  # 544
++            # print(beam_size)                            # 5
++            # print(src_tokens.size())                    # 544, 7
++            # print(encoder_out['encoder_out'].size())    # 544, 7, 768
++            # print(new_order.size())                     # 2720 = 544 * 5
++            # print(new_order[0])                         # 0
+             encoder_out = model.encoder.reorder_encoder_out(encoder_out, new_order)
+             encoder_outs.append(encoder_out)
+ 
+Index: fairseq/tokenizer.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- fairseq/tokenizer.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ fairseq/tokenizer.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -5,6 +5,7 @@
+ # the root directory of this source tree. An additional grant of patent rights
+ # can be found in the PATENTS file in the same directory.
+ 
++from pytorch_pretrained_bert import BertTokenizer
+ from collections import Counter
+ from multiprocessing import Pool
+ import os
+@@ -140,3 +141,119 @@
+         if append_eos:
+             ids[nwords] = dict.eos_index
+         return ids
++
++#TODO initialize from args
++bert_tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
++
++class BertTokenizerWrapper:
++
++    @staticmethod
++    def add_file_to_dictionary_single_worker(filename, tokenize, eos_word, worker_id=0, num_workers=1):
++        # counter = Counter()
++        # with open(filename, 'r', encoding='utf-8') as f:
++        #     size = os.fstat(f.fileno()).st_size
++        #     chunk_size = size // num_workers
++        #     offset = worker_id * chunk_size
++        #     end = offset + chunk_size
++        #     f.seek(offset)
++        #     if offset > 0:
++        #         safe_readline(f)  # drop first incomplete line
++        #     line = f.readline()
++        #     while line:
++        #         for word in tokenize(line):
++        #             counter.update([word])
++        #         counter.update([eos_word])
++        #         if f.tell() > end:
++        #             break
++        #         line = f.readline()
++        # return counter
++        raise Exception('add_file_to_dictionary_single_worker should not be called on BertTokenizerWrapper')
++
++    @staticmethod
++    def add_file_to_dictionary(filename, dict, tokenize, num_workers):
++        # def merge_result(counter):
++        #     for w, c in counter.items():
++        #         dict.add_symbol(w, c)
++        # if num_workers > 1:
++        #     pool = Pool(processes=num_workers)
++        #     results = []
++        #     for worker_id in range(num_workers):
++        #         results.append(pool.apply_async(
++        #             Tokenizer.add_file_to_dictionary_single_worker,
++        #             (filename, tokenize, dict.eos_word, worker_id, num_workers)
++        #         ))
++        #     pool.close()
++        #     pool.join()
++        #     for r in results:
++        #         merge_result(r.get())
++        # else:
++        #     merge_result(Tokenizer.add_file_to_dictionary_single_worker(filename, tokenize, dict.eos_word))
++        raise Exception('add_file_to_dictionary should not be called on BertTokenizerWrapper')
++
++    @staticmethod
++    def binarize(
++        filename, dict, consumer, tokenize=tokenize_line, append_eos=True,
++        reverse_order=False, offset=0, end=-1,
++    ):
++        nseq, ntok = 0, 0
++        replaced = Counter()
++
++        def replaced_consumer(word, idx):
++            if idx == dict.unk_index and word != dict.unk_word:
++                replaced.update([word])
++
++        with open(filename, 'r', encoding='utf-8') as f:
++            f.seek(offset)
++            # next(f) breaks f.tell(), hence readline() must be used
++            line = safe_readline(f)
++            while line:
++                if end > 0 and f.tell() > end:
++                    break
++                ids = BertTokenizerWrapper.tokenize(
++                    line=line,
++                    dict=dict,
++                    tokenize=tokenize,
++                    add_if_not_exist=False,
++                    consumer=replaced_consumer,
++                    append_eos=append_eos,
++                    reverse_order=reverse_order,
++                )
++                nseq += 1
++                ntok += len(ids)
++                consumer(ids)
++                line = f.readline()
++        return {'nseq': nseq, 'nunk': sum(replaced.values()), 'ntok': ntok, 'replaced': replaced}
++
++    @staticmethod
++    def find_offsets(filename, num_chunks):
++        with open(filename, 'r', encoding='utf-8') as f:
++            size = os.fstat(f.fileno()).st_size
++            chunk_size = size // num_chunks
++            offsets = [0 for _ in range(num_chunks + 1)]
++            for i in range(1, num_chunks):
++                f.seek(chunk_size * i)
++                safe_readline(f)
++                offsets[i] = f.tell()
++            return offsets
++
++    @staticmethod
++    def tokenize(line, dict, tokenize=tokenize_line, add_if_not_exist=True,
++                 consumer=None, append_eos=True, reverse_order=False):
++        # words = tokenize(line)
++        # if reverse_order:
++        #     words = list(reversed(words))
++        # nwords = len(words)
++        # ids = torch.IntTensor(nwords + 1 if append_eos else nwords)
++        #
++        # for i, word in enumerate(words):
++        #     if add_if_not_exist:
++        #         idx = dict.add_symbol(word)
++        #     else:
++        #         idx = dict.index(word)
++        #     if consumer is not None:
++        #         consumer(word, idx)
++        #     ids[i] = idx
++        # if append_eos:
++        #     ids[nwords] = dict.eos_index
++        return torch.IntTensor(bert_tokenizer.convert_tokens_to_ids(bert_tokenizer.tokenize(line)[:512]))
++
+Index: preprocess_4_bert_encoder.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- preprocess_4_bert_encoder.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ preprocess_4_bert_encoder.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -10,15 +10,14 @@
+ """
+ 
+ import argparse
+-from collections import Counter
++from collections import Counter, OrderedDict
+ from itertools import zip_longest
+ import os
+ import shutil
+ 
+ from fairseq.data import indexed_dataset, dictionary
+-from fairseq.tokenizer import Tokenizer, tokenize_line
++from fairseq.tokenizer import Tokenizer, tokenize_line, BertTokenizerWrapper
+ from multiprocessing import Pool
+-from pytorch_pretrained_bert import BertModel
+ 
+ from fairseq.utils import import_user_module
+ 
+@@ -57,6 +56,8 @@
+                         help="output format (optional)")
+     parser.add_argument("--joined-dictionary", action="store_true",
+                         help="Generate joined dictionary")
++    parser.add_argument("--bert_uncased", action="store_true", default=False,
++                        help="Use the uncased BERT model")
+     parser.add_argument("--only-source", action="store_true",
+                         help="Only process the source language")
+     parser.add_argument("--padding-factor", metavar="N", default=8, type=int,
+@@ -111,8 +112,19 @@
+                 )
+ 
+     from pytorch_pretrained_bert import BertTokenizer
+-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
++
++    if args.bert_uncased:
++        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=False)
++    else:
++        tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
+ 
++    # new_vocab = OrderedDict()
++    # for k,v in tokenizer.vocab.items():
++    #     if k.lower() in tokenizer.vocab:
++    #         new_vocab[k] = v
++    #     else:
++    #         new_vocab[k.lower()] = v
++
+     def save (f):
+         if isinstance(f, str):
+             os.makedirs(os.path.dirname(f), exist_ok=True)
+@@ -123,18 +135,18 @@
+ 
+     save(dict_path(args.source_lang))
+ 
+-    if not_only_source:
+-        if not args.joined_dictionary:
+-            tgt_dict.finalize(
+-                threshold=args.thresholdtgt,
+-                nwords=args.nwordstgt,
+-                padding_factor=args.padding_factor,
+-            )
+-        tgt_dict.save(dict_path(args.target_lang))
++    # if not_only_source:
++    #     if not args.joined_dictionary:
++    #         tgt_dict.finalize(
++    #             threshold=args.thresholdtgt,
++    #             nwords=args.nwordstgt,
++    #             padding_factor=args.padding_factor,
++    #         )
++    #     tgt_dict.save(dict_path(args.target_lang))
+ 
+     def make_binary_dataset(input_prefix, output_prefix, lang, num_workers):
+-        dict = dictionary.Dictionary.load(dict_path(lang))
+-        print("| [{}] Dictionary: {} types".format(lang, len(dict) - 1))
++        # dict = dictionary.Dictionary.load(dict_path(lang))
++        # print("| [{}] Dictionary: {} types".format(lang, len(dict) - 1))
+         n_seq_tok = [0, 0]
+         replaced = Counter()
+ 
+@@ -171,7 +183,7 @@
+             dataset_dest_file(args, output_prefix, lang, "bin")
+         )
+         merge_result(
+-            Tokenizer.binarize(
++            BertTokenizerWrapper.binarize(
+                 input_file, dict, lambda t: ds.add_item(t), offset=0, end=offsets[1]
+             )
+         )
+@@ -187,13 +199,14 @@
+         ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
+ 
+         print(
+-            "| [{}] {}: {} sents, {} tokens, {:.3}% replaced by {}".format(
++            "| [{}] {}: {} sents, {} tokens".format(
++            # "| [{}] {}: {} sents, {} tokens, {:.3}% replaced by {}".format(
+                 lang,
+                 input_file,
+                 n_seq_tok[0],
+                 n_seq_tok[1],
+-                100 * sum(replaced.values()) / n_seq_tok[1],
+-                dict.unk_word,
++                # 100 * sum(replaced.values()) / n_seq_tok[1],
++                # dict.unk_word,
+             )
+         )
+ 
+@@ -300,7 +313,7 @@
+     def consumer(tensor):
+         ds.add_item(tensor)
+ 
+-    res = Tokenizer.binarize(filename, dict, consumer, offset=offset, end=end)
++    res = BertTokenizerWrapper.binarize(filename, dict, consumer, offset=offset, end=end)
+     ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
+     return res
+ 
+Index: train.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- train.py	(revision 09236665549d8a98aea0a367d70bf3c902950ee7)
++++ train.py	(revision 335f9e93d06b0440b6119613cd8d4497401b99a2)
+@@ -102,6 +102,12 @@
+     valid_losses = [None]
+     valid_subsets = args.valid_subset.split(',')
+     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
++
++        if hasattr(args, 'finetuning') and hasattr(model, 'finetuning'):
++            if epoch_itr.epoch >= args.finetuning:
++                model.finetuning = True
++            else:
++                model.finetuning = False
+         # train for one epoch
+         train(args, trainer, task, epoch_itr)
+ 
