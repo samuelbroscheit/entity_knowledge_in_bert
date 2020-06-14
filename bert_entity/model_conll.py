@@ -224,14 +224,6 @@ class ConllNet(nn.Module):
                 else:
                     loss = criterion(logits, label_probs)
 
-                if args.regularization is not None and args.regularization > 0:
-                    non_pad_mask = (y.view(-1) < vocab.PAD_ID).float().view(-1, 1)
-                    if args.fp16:
-                        sparse_params_regularization = (non_pad_mask * (sparse_params * sparse_params).float()).sum()
-                    else:
-                        sparse_params_regularization = (non_pad_mask * (sparse_params * sparse_params)).sum()
-                    loss = loss + (args.regularization * sparse_params_regularization)
-
                 loss.backward()
 
                 if (iter + 1) % args.accumulate_batch_gradients == 0:
