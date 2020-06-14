@@ -28,6 +28,8 @@ Every time you run the code you have to setup up the paths for python with
 source setup_paths
 ```
 
+You have to provide `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+
 ## Preprocessing
 
 The preprocessing pipeline will take care of all downloads and processing of the data. You run the preprocessing with:
@@ -164,7 +166,7 @@ It consists of the following steps (the respective code is in `bert_entity/prepr
     Also, if `add_missing_conll_entities` is set, the entity ids that are missing in the top k popular entities we'll add the entities that are missing in the AIDA-CONLL benchmark to ensure that the evaluation measures are comparable to prior work. 
     
 - CreateAIDACONLL
-    - Read the AIDA-CONLL benchmark dataset in and merge it with the NER annotations. Requires you to provide `benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
+    - Read the AIDA-CONLL benchmark dataset in and merge it with the NER annotations. Requires you to provide `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
     
 - CreateKeywordProcessor
     - Create a matcher to detect mentions that we found with Wikiextractor in free text. We use this later to add more annotations to the text. However, as we do not know the true entity, we'll associate labels for all entities from the with their
