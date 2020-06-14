@@ -1,0 +1,4 @@
+flashtext
+configargparse
+boto3
+pytorch==1.5.0

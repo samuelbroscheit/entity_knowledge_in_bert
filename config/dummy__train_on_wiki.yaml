@@ -1,3 +1,4 @@
+logdir: data/checkpoints/wiki_00001
 debug: False
 device: 0
 eval_device: 0
@@ -28,7 +29,6 @@ checkpoint_eval_steps: 1000
 checkpoint_save_steps: 1000
 finetuning: 3
 top_rnns: False
-logdir: data/checkpoints/1002
 train_loc_file: train.loc
 valid_loc_file: valid.loc
 resume_reset_epoch: False
