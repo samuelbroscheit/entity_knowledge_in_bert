@@ -1,0 +1,22 @@
+debug: False
+wiki_lang_version: enwiki
+data_version_name: conll2019
+download_data_only_dummy: False
+num_most_freq_entities: 500000
+add_missing_conll_entities: True
+uncased: True
+
+collect_mention_entities_num_workers: 10
+
+wikiextractor_num_workers: 10
+
+create_training_data_num_workers: 10
+create_training_data_num_entities_in_necessary_articles: 10
+
+create_integerized_training_num_workers: 10
+create_integerized_training_loc_file_name: 'data.loc'
+create_integerized_training_instance_text_length: 254
+create_integerized_training_instance_text_overlap: 20
+create_integerized_training_max_entity_per_shard_count: 10
+create_integerized_training_valid_size: 1000
+create_integerized_training_test_size: 1000
