@@ -83,7 +83,7 @@ class PipelineJob(Job):
 
     def create_out_directories(self,):
         for file_name in self.provides:
-            if os.path.dirname(file_name) == file_name:
+            if len(file_name) - len(os.path.dirname(file_name)) in [0, 1]:
                 os.makedirs(os.path.dirname(os.path.dirname(file_name)), exist_ok=True)
             else:
                 os.makedirs(os.path.dirname(file_name), exist_ok=True)
