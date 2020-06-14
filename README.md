@@ -46,11 +46,11 @@ The preprocessing pipeline will take care of all downloads and processing of the
 python bert_entity/preprocess_all.py -c CONFIG_FILE_NAME
 ```  
 
-CONFIG_FILE_NAME is a yaml file, see for example [dummy__preprocess.yaml](config/dummy__preprocess.yaml) and takes the following options (can also be given on the command line). 
+CONFIG_FILE_NAME is a yaml file, but all options can also be given on the command line. In the config folder you will find two configurations that already It supports the following configurations: 
 
 
 ```  
-  -c                            Config file path
+
   --debug                       Print debug messages  
 
    # General settings

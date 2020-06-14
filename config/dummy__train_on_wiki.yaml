@@ -15,7 +15,6 @@ sparse: True
 encoder_lr: 5e-05
 decoder_lr: 0.1
 maskout_entity_prob: 0.0
-segm_decoder_lr: 0.001
 encoder_weight_decay: 0.0
 decoder_weight_decay: 0.0
 segm_decoder_weight_decay: 0.0
@@ -23,12 +22,11 @@ learn_segmentation: False
 label_size: 8192
 entity_embedding_size: 768
 project: False
-n_epochs: 20
+n_epochs: 10
 collect_most_popular_labels_steps: 1
 checkpoint_eval_steps: 1000
-checkpoint_save_steps: 1000
+checkpoint_save_steps: 100000
 finetuning: 3
-top_rnns: False
 train_loc_file: train.loc
 valid_loc_file: valid.loc
 resume_reset_epoch: False

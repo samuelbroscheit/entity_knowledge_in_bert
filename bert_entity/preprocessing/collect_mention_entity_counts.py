@@ -62,7 +62,7 @@ class CollectMentionEntityCounts(PipelineJob):
         # fill the queue
         for file_nr, extracted_wiki_file in enumerate(tqdm(glob.glob(list_dir_string))):
             in_queue.put(extracted_wiki_file)
-            self.log("put {} in queue".format(extracted_wiki_file))
+            self.debug("put {} in queue".format(extracted_wiki_file))
 
         all_linked_mention_counter = Counter()
         all_entity_counter = Counter()
