@@ -214,7 +214,7 @@ Once you have alle the preprocessing done, you can run the training on Wikipidia
 python bert_entity/train.py -c CONFIG_FILE_NAME
 ```  
 
-CONFIG_FILE_NAME is a yaml file, see for example [dummy_train_on_wiki.yaml](config/dummy_train_on_wiki.yaml) and takes the following options (can also be given on the command line). 
+CONFIG_FILE_NAME is a yaml file, see for example [dummy_train__on_wiki.yaml](config/dummy__train_on_wiki.yaml) and takes the following options (can also be given on the command line). 
 
 ```
   --debug                               DEBUG
