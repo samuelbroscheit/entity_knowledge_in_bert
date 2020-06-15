@@ -14,7 +14,7 @@ wikiextractor_num_workers: 10
 create_training_data_num_workers: 10
 create_training_data_num_entities_in_necessary_articles: 10
 
-create_integerized_training_num_workers: 10
+create_integerized_training_num_workers: 50
 create_integerized_training_loc_file_name: 'data.loc'
 create_integerized_training_instance_text_length: 254
 create_integerized_training_instance_text_overlap: 20
