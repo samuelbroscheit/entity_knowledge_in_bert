@@ -8,7 +8,7 @@ The content of this page covers the following topics:
 
 1. [Quick start](#quick-start)
 2. [Preparation and Installation](#preparation-and-installation)
-3. [Preprocessing of Wikipedia and the AIDA-CONLL entity linking benchmark into a sequence tagging format](#prepare)
+3. [Preprocessing of Wikipedia and the AIDA-CONLL entity linking benchmark into a sequence tagging format](#preprocessing-data)
 4. [Finetuning/Training a BERT-Entity model on Wikipedia](#training)
 5. [Finetuning a BERT-Entity model on the AIDA-CONLL entity linking benchmark](#training)
 6. [Using a BERT-Entity model in a downstream task](#evalation-on-downstream-tasks)
