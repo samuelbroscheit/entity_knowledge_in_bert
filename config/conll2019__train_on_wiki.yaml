@@ -8,7 +8,7 @@ data_version_name: conll2019
 wiki_lang_version: enwiki
 eval_on_test_only: False
 out_device: 0
-batch_size: 16
+batch_size: 6
 eval_batch_size: 1
 accumulate_batch_gradients: 8
 sparse: True
@@ -25,8 +25,8 @@ entity_embedding_size: 768
 project: False
 n_epochs: 20
 collect_most_popular_labels_steps: 1
-checkpoint_eval_steps: 1000
-checkpoint_save_steps: 1000
+checkpoint_eval_steps: 10000
+checkpoint_save_steps: 100000
 finetuning: 3
 top_rnns: False
 train_loc_file: train.loc
