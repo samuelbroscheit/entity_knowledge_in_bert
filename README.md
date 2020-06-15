@@ -16,7 +16,7 @@ The content of this page covers the following topics:
 
 ## Quick start
 
-For the impatient here are all the steps to run the prototyping setup:
+Here are all the steps to run the prototyping setting up to the finetuning on the AIDA-CoNLL benchmark:
 
 - The project is installed as follows:
 
