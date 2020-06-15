@@ -398,6 +398,7 @@ See files in `downstream_tasks`. Documentation is a TODO.
 
 ## Issues and possible improvements
 
+- The code is currently poorly documented and not always nice to read. 
 - Currently all checkpoints are kept which requires a lot of disk space, should be configurable to only keep the K most current checkpoints. 
 - Training is slow because of accumulating the most probable entities per batch. This could be sped up with adaptive softmax like change, i.e. first decide if token is an entity. 
 - Resuming currently only works on the epoch level. To enable resuming in between epochs, the shuffled indexes for an epoch have to be stored in the LOGDIR or checkpoint.
