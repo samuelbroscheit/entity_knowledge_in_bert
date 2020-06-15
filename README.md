@@ -259,7 +259,7 @@ Preprocessing consists of the following tasks (the respective code is in `bert_e
     - Read the AIDA-CONLL benchmark dataset in and merge it with the NER annotations. Requires you to provide `data/benchmarks/aida-yago2-dataset/AIDA-YAGO2-dataset.tsv`. Please make sure that you have the correct file with 6 columns: Token, Mention, Yago Name, Wiki Name, Wiki Id, Freebase Id. 
     
 - CreateKeywordProcessor
-    - Create a tri-based matcher to detect possible mentions of our known entities. We use this later to add autmatic annotations to the text. However, as we do not know the true entity for those mentions, they will have multiple labels, i.e. for all entities from the with their p(e|m) prior.
+    - Create a tri-based matcher to detect possible mentions of our known entities. We use this later to add autmatic annotations to the text. However, as we do not know the true entity for those mentions, they will have multiple labels, i.e. all entities from the p(e|m) prior.
 
 - CreateWikiTrainingData
     - Create sequence labelling data. Tokenization is done with BertTokenizer. Tokens are either have a label when they have an associated Wikipedia link, or when they are in spans detected by the keyword matcher. Subsequently, we count the mentions in this data and create a discounted prior p(e|m) and the set of necessary Wikpedia articles, i.e. all the articles that contain links to the top k popular entities.
@@ -275,7 +275,7 @@ Preprocessing consists of the following tasks (the respective code is in `bert_e
 
         ```
         create_integerized_training_max_entity_per_shard_count = 10
-        create_integerized_training_num_workers = 40
+        create_integerized_training_num_workers = 50
         num_most_freq_entities = 500000
         ```
         
