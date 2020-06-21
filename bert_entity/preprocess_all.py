@@ -35,6 +35,7 @@ parser.add_argument("--wikiextractor_num_workers", type=int, help="")
 
 parser.add_argument("--create_training_data_num_workers", type=int, default="10")
 parser.add_argument("--create_training_data_num_entities_in_necessary_articles", type=int, help="")
+parser.add_argument("--create_training_data_discount_nil_strategy", type=str, help="the discount strategy either 'hacky' or 'prop'", default="prop")
 
 parser.add_argument("--create_integerized_training_num_workers", type=int, default="10")
 parser.add_argument("--create_integerized_training_loc_file_name", type=str, default="data.loc")

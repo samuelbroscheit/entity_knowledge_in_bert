@@ -26,6 +26,7 @@ class CreateWikiTrainingData(PipelineJob):
     Subsequently, we count the mentions in this data and create a discounted prior p(e|m)
     and a set of necessary articles that contain the top k popular entities.
     """
+
     def __init__(self, preprocess_jobs: Dict[str, PipelineJob], opts):
         super().__init__(
             requires=[
@@ -158,22 +159,57 @@ class CreateWikiTrainingData(PipelineJob):
         ).mean()
 
         # Now use the estimate of p(NIL|m) to rescale p(NIL|"United States") == 0 and p(NIL | m) for
-        # other mention-entity pairs are discounted accordingly.
-        me_pop_p = dict()
-        for a_mention, counts in me_pop:
-            sum_em_counts_for_a_mention = sum([c for k, c in mention_entity_count_popular_entities[a_mention]])
-            tmp = [
-                (e, (c / (mention_counter[a_mention] + 1)))
-                for e, c in mention_entity_count_popular_entities[a_mention]
-                            + [("|||O|||",
-                                    max([
-                                            math.pow(max([mention_counter[a_mention] - sum_em_counts_for_a_mention, 1, ]), 3 / 4, )
-                                            - math.pow(prob_m_links_to_nil * mention_counter[a_mention], 3 / 4, ),
-                                            1,
-                                        ]),)]
-            ]
-            sum_tmp = sum([p for k, p in tmp])
-            me_pop_p[a_mention] = [(k, p / sum_tmp) for k, p in tmp]
+        # other mention-entity pairs are discounted accordingly. FIrst a "hacky" version that worked
+        # and then the proper version from the paper
+        if self.opts.create_training_data_discount_nil_strategy == "hacky":
+
+            me_pop_p = dict()
+            for a_mention, counts in me_pop:
+                sum_em_counts_for_a_mention = sum([c for k, c in mention_entity_count_popular_entities[a_mention]])
+                tmp = [
+                    (e, (c / (mention_counter[a_mention] + 1)))
+                    for e, c in mention_entity_count_popular_entities[a_mention]
+                    + [
+                        (
+                            "|||O|||",
+                            max(
+                                [
+                                    math.pow(max([mention_counter[a_mention] - sum_em_counts_for_a_mention, 1,]), 3 / 4,)
+                                    - math.pow(prob_m_links_to_nil * mention_counter[a_mention], 3 / 4,),
+                                    1,
+                                ]
+                            ),
+                        )
+                    ]
+                ]
+                sum_tmp = sum([p for k, p in tmp])
+                me_pop_p[a_mention] = [(k, p / sum_tmp) for k, p in tmp]
+
+        elif self.opts.create_training_data_discount_nil_strategy == "prop":
+
+            me_pop_p = dict()
+            for a_mention, counts in me_pop:
+                sum_em_counts_for_a_mention = sum([c for k, c in mention_entity_count_popular_entities[a_mention]])
+                tmp = [
+                    (e, (c / (mention_counter[a_mention] + 1)))
+                    for e, c in mention_entity_count_popular_entities[a_mention]
+                    + [
+                        (
+                            "|||O|||",
+                            max(
+                                [
+                                    # == NIL count
+                                    max([mention_counter[a_mention] - sum_em_counts_for_a_mention, 1,])
+                                    -
+                                    prob_m_links_to_nil/(1-prob_m_links_to_nil) * mention_counter[a_mention],
+                                    1,
+                                ]
+                            ),
+                        )
+                    ]
+                ]
+                sum_tmp = sum([p for k, p in tmp])
+                me_pop_p[a_mention] = [(k, p / sum_tmp) for k, p in tmp]
 
         # Now collect the Wikipedia articles that are neccessary to compute the entity embeddings for the most
         # popular entities, i.e. the Wikipedia articles that contain the most popular entities.
