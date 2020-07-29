@@ -406,3 +406,22 @@ See files in `downstream_tasks`. Documentation is a TODO.
 - Configuration to create integerized Wiki training data is hard to grasp, i.e. which training instances are included depends on `create_integerized_training_max_entity_per_shard_count`, `create_integerized_training_num_workers` and `num_most_freq_entities`. Their influence is difficult to describe, should be more straightforward.
 - It would be much better to produce an annotated document and evaluate it with https://github.com/wikilinks/neleval . neleval is widely used and has all the necessary metrics implemented. 
 - Investigate shrinking the model size and improve prediction speed. 
+
+## Citation
+
+if you find this code useful for your research please cite 
+
+```
+@inproceedings{broscheit-2019-investigating,
+    title = "Investigating Entity Knowledge in {BERT} with Simple Neural End-To-End Entity Linking",
+    author = "Broscheit, Samuel",
+    booktitle = "Proceedings of the 23rd Conference on Computational Natural Language Learning (CoNLL)",
+    month = nov,
+    year = "2019",
+    address = "Hong Kong, China",
+    publisher = "Association for Computational Linguistics",
+    url = "https://www.aclweb.org/anthology/K19-1063",
+    doi = "10.18653/v1/K19-1063",
+    pages = "677--685",
+}
+```
